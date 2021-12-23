@@ -14,10 +14,12 @@ to generate this file without the comments in this block.
 , dependencies =
   [ "aff"
   , "argonaut"
+  , "arrays"
   , "console"
   , "effect"
   , "enums"
   , "flame"
+  , "foldable-traversable"
   , "foreign"
   , "foreign-object"
   , "maybe"

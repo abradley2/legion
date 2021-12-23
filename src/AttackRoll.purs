@@ -10,8 +10,9 @@ module AttackRoll
   ) where
 
 import Prelude
+
 import D8 (D8(..), rollD8)
-import Data.Array (elem, (..))
+import Data.Array (elem, (..), filter)
 import Data.Enum (downFromIncluding)
 import Data.Generic.Rep (class Generic)
 import Data.Maybe (Maybe(..))
@@ -74,4 +75,4 @@ rollAttacks :: Variant -> (Result -> Maybe Value) -> Int -> Effect (Array (Maybe
 rollAttacks variant resolveSurge count =
   sequence
     $ (resolveSurge <<< toResult variant <$> rollD8)
-    <$ (0 .. count)
+    <$ filter ((/=) 0) (0 .. count)
