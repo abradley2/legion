@@ -5,6 +5,7 @@ import AttackRoll (rollAttacks)
 import AttackRoll as AttackRoll
 import Control.Monad.State (State, evalState, state)
 import Data.Array (catMaybes)
+import Data.Array as Array
 import Data.List (List(..))
 import Data.List as List
 import Data.Maybe (Maybe(..))
@@ -28,7 +29,7 @@ type DefenseConfig
 
 resolveAttacks ∷ Config → Effect (List AttackRoll.Value)
 resolveAttacks { attackVariant, attackSurge, attackCount, defense } = do
-  attackResults <- List.fromFoldable <$> catMaybes <$> rollAttacks attackVariant attackSurge attackCount
+  attackResults <- List.fromFoldable <$> catMaybes <$> Array.fromFoldable <$> rollAttacks attackVariant attackSurge attackCount
   case defense of
     Just defenseConfig ->
       resolveDefenseRolls defenseConfig
