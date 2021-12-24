@@ -1,6 +1,7 @@
 module AttackRoll
   ( Result(..)
   , Variant(..)
+  , AttackMods
   , ignoreSurge
   , rollAttacks
   , surgeCrit

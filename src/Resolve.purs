@@ -16,9 +16,10 @@ import Effect (Effect)
 
 type Config
   = { attackVariant :: AttackRoll.Variant
-    , attackSurge :: AttackRoll.Result -> Maybe AttackRoll.Value
+    , attackSurge :: AttackRoll.Result -> AttackRoll.Result
     , attackCount :: Int
     , defense :: Maybe DefenseConfig
+    , attackMods :: AttackRoll.AttackMods
     }
 
 type DefenseConfig
@@ -27,9 +28,9 @@ type DefenseConfig
     , defenseSurge :: DefenseRoll.Result -> Maybe DefenseRoll.Value
     }
 
-resolveAttacks ∷ Config → Effect (List AttackRoll.Value)
-resolveAttacks { attackVariant, attackSurge, attackCount, defense } = do
-  attackResults <- List.fromFoldable <$> catMaybes <$> Array.fromFoldable <$> rollAttacks attackVariant attackSurge attackCount
+resolveAttacks ∷ Config → Effect (List AttackRoll.Result)
+resolveAttacks { attackVariant, attackSurge, attackCount, attackMods, defense } = do
+  attackResults <- List.fromFoldable <$> Array.fromFoldable <$> rollAttacks attackVariant attackSurge attackMods attackCount
   case defense of
     Just defenseConfig ->
       resolveDefenseRolls defenseConfig
@@ -41,7 +42,7 @@ type DefenseMods
     , cover :: Int
     }
 
-resolveDefenseRolls :: DefenseConfig -> List AttackRoll.Value -> Effect (List AttackRoll.Value)
+resolveDefenseRolls :: DefenseConfig -> List AttackRoll.Result -> Effect (List AttackRoll.Result)
 resolveDefenseRolls config = case _ of
   Nil -> pure Nil
   (Cons attack attacks) -> do
@@ -50,7 +51,7 @@ resolveDefenseRolls config = case _ of
       Just DefenseRoll.Block -> resolveDefenseRolls config attacks
       Nothing -> Cons attack <$> resolveDefenseRolls config attacks
 
-resolveDefenseMods :: List AttackRoll.Value -> State DefenseMods (List AttackRoll.Value)
+resolveDefenseMods :: List AttackRoll.Result -> State DefenseMods (List AttackRoll.Result)
 resolveDefenseMods = case _ of
   Nil -> pure Nil
   Cons AttackRoll.Crit attacks -> Cons AttackRoll.Crit <$> resolveDefenseMods attacks
@@ -67,3 +68,4 @@ resolveDefenseMods = case _ of
     case result of
       Just hit -> Cons hit <$> resolveDefenseMods attacks
       Nothing -> resolveDefenseMods attacks
+  Cons missOrSurge attacks -> resolveDefenseMods attacks
