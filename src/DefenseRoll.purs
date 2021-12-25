@@ -7,7 +7,6 @@ module DefenseRoll
   ) where
 
 import Prelude
-
 import D6 (D6(..), rollD6)
 import Data.Array (elem)
 import Data.Enum (downFromIncluding)
@@ -17,7 +16,6 @@ import Effect (Effect)
 data Variant
   = Red
   | White
-
 
 data Result
   = Block
