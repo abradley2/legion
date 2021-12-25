@@ -4,7 +4,6 @@ import Prelude
 import AttackRoll (rollAttacks)
 import AttackRoll as AttackRoll
 import Control.Monad.State (State, evalState, state)
-import Data.Array (catMaybes)
 import Data.Array as Array
 import Data.List (List(..))
 import Data.List as List
@@ -16,7 +15,7 @@ import Effect (Effect)
 
 type Config
   = { attackVariant :: AttackRoll.Variant
-    , attackSurge :: AttackRoll.Result -> AttackRoll.Result
+    , attackSurge :: Maybe AttackRoll.Result
     , attackCount :: Int
     , defense :: Maybe DefenseConfig
     , attackMods :: AttackRoll.AttackMods
@@ -68,4 +67,4 @@ resolveDefenseMods = case _ of
     case result of
       Just hit -> Cons hit <$> resolveDefenseMods attacks
       Nothing -> resolveDefenseMods attacks
-  Cons missOrSurge attacks -> resolveDefenseMods attacks
+  Cons _missOrSurge attacks -> resolveDefenseMods attacks

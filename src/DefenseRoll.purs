@@ -1,53 +1,44 @@
 module DefenseRoll
   ( Result(..)
-  , Value(..)
   , Variant(..)
   , applySurge
-  , ignoreSurge
   , rollDefense
-  , surgeBlock
   , toResult
   ) where
 
 import Prelude
+
 import D6 (D6(..), rollD6)
 import Data.Array (elem)
 import Data.Enum (downFromIncluding)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe, fromMaybe)
 import Effect (Effect)
 
 data Variant
   = Red
   | White
 
-data Value
-  = Block
 
 data Result
-  = Result (Maybe Value)
+  = Block
+  | Wound
   | Surge
 
-applySurge :: Maybe Value -> Result -> Maybe Value
+applySurge :: Maybe Result -> Result -> Result
 applySurge val = case _ of
-  Result res -> res
-  Surge -> val
-
-ignoreSurge :: Result -> Maybe Value
-ignoreSurge = applySurge Nothing
-
-surgeBlock :: Result -> Maybe Value
-surgeBlock = applySurge $ Just Block
+  Surge -> fromMaybe Surge val
+  result -> result
 
 toResult :: Variant -> D6 -> Result
 toResult White d6
-  | elem d6 $ downFromIncluding Four = Result Nothing
+  | elem d6 $ downFromIncluding Four = Wound
   | elem d6 $ downFromIncluding Five = Surge
-  | otherwise = Result $ Just Block
+  | otherwise = Block
 
 toResult Red d6
-  | elem d6 $ downFromIncluding Two = Result Nothing
+  | elem d6 $ downFromIncluding Two = Wound
   | elem d6 $ downFromIncluding Three = Surge
-  | otherwise = Result $ Just Block
+  | otherwise = Block
 
-rollDefense :: Variant -> (Result -> Maybe Value) -> Effect (Maybe Value)
-rollDefense variant resolveSurge = resolveSurge <$> toResult variant <$> rollD6
+rollDefense :: Variant -> Maybe Result -> Effect Result
+rollDefense variant surge = applySurge surge <$> toResult variant <$> rollD6

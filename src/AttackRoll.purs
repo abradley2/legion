@@ -2,10 +2,7 @@ module AttackRoll
   ( Result(..)
   , Variant(..)
   , AttackMods
-  , ignoreSurge
   , rollAttacks
-  , surgeCrit
-  , surgeHit
   , toResult
   ) where
 
@@ -18,6 +15,7 @@ import Data.Enum (downFromIncluding)
 import Data.Generic.Rep (class Generic)
 import Data.List (List(..))
 import Data.List as List
+import Data.Maybe (Maybe, fromMaybe)
 import Data.Show.Generic (genericShow)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..))
@@ -34,19 +32,10 @@ derive instance genericResult :: Generic Result _
 instance showResult :: Show Result where
   show = genericShow
 
-applySurge :: Result -> Result -> Result
+applySurge :: Maybe Result -> Result -> Result
 applySurge val = case _ of
-  Surge -> val
+  Surge -> fromMaybe Surge val
   result -> result
-
-surgeHit :: Result -> Result
-surgeHit = applySurge Hit
-
-surgeCrit :: Result -> Result
-surgeCrit = applySurge Crit
-
-ignoreSurge :: Result -> Result
-ignoreSurge = applySurge Surge
 
 data Variant
   = White
@@ -77,23 +66,23 @@ type AttackMods
     , surgeTokens :: Int
     }
 
-resolveAttackMods :: Variant -> (Result -> Result) -> List Result -> StateT AttackMods Effect (List Result)
+resolveAttackMods :: Variant -> (Maybe Result) -> List Result -> StateT AttackMods Effect (List Result)
 resolveAttackMods _ _ Nil = pure Nil
 
 -- leave hits alone
-resolveAttackMods variant resolveSurge (Cons Hit attacks) =
+resolveAttackMods variant surge (Cons Hit attacks) =
   Cons Hit
-    <$> resolveAttackMods variant resolveSurge attacks
+    <$> resolveAttackMods variant surge attacks
 
 -- leave crits alone
-resolveAttackMods variant resolveSurge (Cons Crit attacks) =
+resolveAttackMods variant surge (Cons Crit attacks) =
   Cons Crit
-    <$> resolveAttackMods variant resolveSurge attacks
+    <$> resolveAttackMods variant surge attacks
 
 -- check if we can re-roll misses
-resolveAttackMods variant resolveSurge (Cons Miss attacks) = do
-  reroll <- lift $ resolveSurge <$> toResult variant <$> rollD8
-  next <- resolveAttackMods variant resolveSurge attacks
+resolveAttackMods variant surge (Cons Miss attacks) = do
+  reroll <- lift $ applySurge surge <$> toResult variant <$> rollD8
+  next <- resolveAttackMods variant surge attacks
   state \mods ->
     if mods.rerolls > 0 then
       let
@@ -111,9 +100,9 @@ resolveAttackMods variant resolveSurge (Cons Miss attacks) = do
       Tuple (Cons Miss next) mods
 
 -- check if we can spend surge tokens to convert surges
-resolveAttackMods variant resolveSurge (Cons Surge attacks) = do
-  next <- resolveAttackMods variant resolveSurge attacks
-  case resolveSurge Surge of
+resolveAttackMods variant surge (Cons Surge attacks) = do
+  next <- resolveAttackMods variant surge attacks
+  case applySurge surge Surge of
     Surge ->
       state \mods -> do
         if mods.surgeTokens > 0 then
@@ -122,11 +111,11 @@ resolveAttackMods variant resolveSurge (Cons Surge attacks) = do
           Tuple (Cons Miss next) mods
     other -> pure $ Cons other next
 
-rollAttacks ∷ Variant → (Result → Result) → AttackMods → Int → Effect (List Result)
-rollAttacks variant resolveSurge attackMods count =
+rollAttacks ∷ Variant → (Maybe Result) → AttackMods → Int → Effect (List Result)
+rollAttacks variant surge attackMods count =
   replicate count ""
     # List.fromFoldable
     # map (const rollD8 >>> map (toResult variant))
     # sequence
-    # map (resolveAttackMods variant resolveSurge)
+    # map (resolveAttackMods variant surge)
     >>= \s -> evalStateT s attackMods
