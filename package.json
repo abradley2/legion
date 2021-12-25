@@ -8,14 +8,15 @@
     },
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "build": "spago build && browserify main.js -o public/main.bundle.js",
-        "dev": "npm run build && http-server public"
+        "build": "spago build && browserify main.js -o public/main.bundle.js"
     },
     "author": "",
     "license": "ISC",
     "dependencies": {
         "browser-sync": "^2.27.7",
         "browserify": "^17.0.0",
-        "http-server": "^14.0.0"
+        "chokidar": "^3.5.2",
+        "http-server": "^14.0.0",
+        "uglify-js": "^3.14.5"
     }
 }

@@ -3,12 +3,16 @@ lockfileVersion: 5.3
 specifiers:
   browser-sync: ^2.27.7
   browserify: ^17.0.0
+  chokidar: ^3.5.2
   http-server: ^14.0.0
+  uglify-js: ^3.14.5
 
 dependencies:
   browser-sync: 2.27.7
   browserify: 17.0.0
+  chokidar: 3.5.2
   http-server: 14.0.0
+  uglify-js: 3.14.5
 
 packages:
 
@@ -2241,6 +2245,12 @@ packages:
 
   /ua-parser-js/1.0.2:
     resolution: {integrity: sha512-00y/AXhx0/SsnI51fTc0rLRmafiGOM4/O+ny10Ps7f+j/b8p/ZY11ytMgznXkOVo4GQ+KwQG5UQLkLGirsACRg==}
+    dev: false
+
+  /uglify-js/3.14.5:
+    resolution: {integrity: sha512-qZukoSxOG0urUTvjc2ERMTcAy+BiFh3weWAkeurLwjrCba73poHmG3E36XEjd/JGukMzwTL7uCxZiAexj8ppvQ==}
+    engines: {node: '>=0.8.0'}
+    hasBin: true
     dev: false
 
   /umd/3.0.3:
