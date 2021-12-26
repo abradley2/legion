@@ -27,6 +27,7 @@ data Error
 type Mods
   = { dodgeTokens :: Int
     , coverValue :: Int
+    , surgeTokens :: Int
     }
 
 type Config
@@ -46,12 +47,21 @@ rollBlocks config (Cons AttackRoll.Hit attacks) = do
   next <- rollBlocks config attacks
   state
     ( \mods ->
-        if mods.coverValue > 0 then
-          Tuple (Cons Block next) (mods { coverValue = mods.coverValue - 1 })
-        else if mods.dodgeTokens > 0 then
-          Tuple (Cons Block next) (mods { dodgeTokens = mods.dodgeTokens - 1 })
-        else
-          Tuple (Cons result next) mods
+      case result of
+        Wound ->
+          if mods.coverValue > 0 then
+            Tuple (Cons Block next) (mods { coverValue = mods.coverValue - 1 })
+          else if mods.dodgeTokens > 0 then
+            Tuple (Cons Block next) (mods { dodgeTokens = mods.dodgeTokens - 1 })
+          else
+            Tuple (Cons Wound next) mods
+        Surge ->
+          if mods.surgeTokens > 0 then
+            Tuple (Cons Block next) (mods { surgeTokens = mods.surgeTokens - 1})
+          else
+            Tuple (Cons Wound next) mods
+        Block ->
+          Tuple (Cons Block next) mods
     )
 
 rollBlocks surge (Cons AttackRoll.Crit attacks) = (Cons Wound) <$> rollBlocks surge attacks
@@ -64,6 +74,8 @@ data Result
   = Block
   | Wound
   | Surge
+
+derive instance eqResult :: Eq Result
 
 applySurge :: Maybe Result -> Result -> Result
 applySurge val = case _ of

@@ -1,6 +1,7 @@
 module Main
   ( main
-  ) where
+  )
+  where
 
 import Prelude
 import AttackRoll as AttackRoll
@@ -21,16 +22,18 @@ import Flame.Types (Source(..))
 import Foreign.Object as Object
 
 type Model
-  = { count :: Int
-    , attackVariant :: AttackRoll.Variant
+  = { attackVariant :: AttackRoll.Variant
     , attackCount :: Int
+    , attackSurgeTokens :: Int
+    , aimTokens :: Int
     , defenseVariant :: Maybe DefenseRoll.Variant
     , defenseCount :: Int
+    , defenseSurgeTokens :: Int
+    , dodgeTokens :: Int
     }
 
 data Msg
-  = Count
-  | TriggerHelloEvent
+  = TriggerHelloEvent
   | ReceivedHelloEvent
   | AttackVariantSelected AttackRoll.Variant
   | DefenseVariantSelected (Maybe DefenseRoll.Variant)
@@ -42,8 +45,11 @@ triggerHelloEvent = liftEffect $ const Nothing <$> dispatchDocumentEvent (custom
 
 init :: Tuple Model (Array (Aff (Maybe Msg)))
 init =
-  { count: 0
-  , attackVariant: AttackRoll.White
+  { attackVariant: AttackRoll.White
+  , attackSurgeTokens: 0
+  , defenseSurgeTokens: 0
+  , dodgeTokens: 0
+  , aimTokens: 0
   , defenseVariant: Nothing
   , attackCount: 0
   , defenseCount: 0
@@ -67,24 +73,14 @@ update model (AttackVariantSelected attackVariant) =
   model { attackVariant = attackVariant }
     :> []
 
-update model Count =
-  model { count = model.count + 1 }
-    :> []
-
 update model TriggerHelloEvent = model :> [ triggerHelloEvent ]
 
-update model ReceivedHelloEvent =
-  model { count = model.count + 1000 }
-    :> []
+update model ReceivedHelloEvent = model :> []
 
 view :: Model -> Html Msg
 view model =
   H.div_
     [ H.button
-        [ E.onClick Count
-        ]
-        [ H.text $ "Click " <> show model.count <> " times" ]
-    , H.button
         [ E.onClick TriggerHelloEvent
         ]
         [ H.text "Trigger external event" ]
