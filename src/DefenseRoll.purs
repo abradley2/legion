@@ -3,8 +3,9 @@ module DefenseRoll
   , Variant(..)
   , Config
   , Mods
+  , Error
   , applySurge
-  , rollDefense
+  , rollBlocks
   , toResult
   ) where
 
@@ -80,5 +81,4 @@ toResult Red d6
   | elem d6 $ downFromIncluding Three = Surge
   | otherwise = Block
 
-rollDefense :: Variant -> Maybe Result -> Effect Result
-rollDefense variant surge = applySurge surge <$> toResult variant <$> rollD6
+
