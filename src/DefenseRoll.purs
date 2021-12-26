@@ -34,10 +34,10 @@ type Config
     , surge :: Maybe Result
     }
 
-rollBlocks :: Config -> List (AttackRoll.Result) -> StateT Mods (ExceptT Error Effect) (List Result)
+rollBlocks :: Config -> List (AttackRoll.Result) -> ExceptT Error (StateT Mods Effect) (List Result)
 rollBlocks _ Nil = pure Nil
 
-rollBlocks _ (Cons AttackRoll.Surge _) = lift $ throwError (InvalidAttack "Not hit")
+rollBlocks _ (Cons AttackRoll.Surge _) = throwError (InvalidAttack "Unresolved Surge")
 
 rollBlocks config (Cons AttackRoll.Miss attacks) = rollBlocks config attacks
 
@@ -80,5 +80,3 @@ toResult Red d6
   | elem d6 $ downFromIncluding Two = Wound
   | elem d6 $ downFromIncluding Three = Surge
   | otherwise = Block
-
-
