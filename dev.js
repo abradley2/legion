@@ -1,4 +1,3 @@
-const browserSync = require("browser-sync");
 const chokidar = require('chokidar')
 const { exec } = require('child_process')
 const { join } = require('path')
@@ -31,8 +30,3 @@ chokidar.watch(join(__dirname, "./src/**/*.purs"), {
   }
 })())
 
-
-browserSync({
-  server: "public",
-  reloadDelay: 2000
-}).watch("**/*.js")

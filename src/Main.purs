@@ -22,15 +22,28 @@ import Flame.Types (Source(..))
 import Foreign.Object as Object
 import Icon as Icon
 
+data Toggleable a
+  = Enabled a
+  | Disabled a
+
+isToggled :: forall a. Toggleable a -> Boolean
+isToggled = case _ of
+  Enabled _ -> true
+  Disabled _ -> false
+
+toggle :: forall a. Toggleable a -> Toggleable a
+toggle = case _ of
+  Enabled val -> Disabled val
+  Disabled val -> Enabled val
+
 type Model
   = { attackVariant :: AttackRoll.Variant
     , attackCount :: Int
-    , attackSurgeTokens :: Int
-    , aimTokens :: Int
+    , attackSurgeTokens :: Toggleable Int
+    , aimTokens :: Toggleable Int
     , defenseVariant :: Maybe DefenseRoll.Variant
-    , defenseCount :: Int
-    , defenseSurgeTokens :: Int
-    , dodgeTokens :: Int
+    , defenseSurgeTokens :: Toggleable Int
+    , dodgeTokens :: Toggleable Int
     }
 
 data Msg
@@ -39,7 +52,8 @@ data Msg
   | AttackVariantSelected AttackRoll.Variant
   | DefenseVariantSelected (Maybe DefenseRoll.Variant)
   | AttackCountChanged String
-  | DefenseCountChanged String
+  | DodgeTokensChanged (Toggleable Int)
+  | DefenseSurgeTokensChanged (Toggleable Int)
 
 triggerHelloEvent :: Aff (Maybe Msg)
 triggerHelloEvent = liftEffect $ const Nothing <$> dispatchDocumentEvent (customEvent "hello" Object.empty)
@@ -47,23 +61,26 @@ triggerHelloEvent = liftEffect $ const Nothing <$> dispatchDocumentEvent (custom
 init :: Tuple Model (Array (Aff (Maybe Msg)))
 init =
   { attackVariant: AttackRoll.White
-  , attackSurgeTokens: 0
-  , defenseSurgeTokens: 0
-  , dodgeTokens: 0
-  , aimTokens: 0
-  , defenseVariant: Nothing
+  , attackSurgeTokens: Disabled 0
+  , defenseSurgeTokens: Disabled 0
+  , dodgeTokens: Disabled 0
+  , aimTokens: Disabled 0
+  , defenseVariant: Just DefenseRoll.White
   , attackCount: 0
-  , defenseCount: 0
   }
     :> []
 
 update :: Model -> Msg -> Tuple Model (Array (Aff (Maybe Msg)))
-update model (AttackCountChanged count) =
-  model { attackCount = fromMaybe 0 $ Int.fromString count }
+update model (DefenseSurgeTokensChanged defenseSurgeTokens) =
+  model { defenseSurgeTokens = defenseSurgeTokens }
     :> []
 
-update model (DefenseCountChanged count) =
-  model { defenseCount = fromMaybe 0 $ Int.fromString count }
+update model (DodgeTokensChanged dodgeTokens) =
+  model { dodgeTokens = dodgeTokens }
+    :> []
+
+update model (AttackCountChanged count) =
+  model { attackCount = fromMaybe 0 $ Int.fromString count }
     :> []
 
 update model (DefenseVariantSelected defenseVariant) =
@@ -84,9 +101,11 @@ view model =
     [ A.class' "center measure pv3 avenir"
     ]
     [ H.div
-        [ A.class' "flex"
+        [ A.class' "flex flex-wrap na3"
         ]
-        [ H.div_
+        [ H.div
+            [ A.class' "ma3"
+            ]
             [ H.div
                 [ A.class' "flex flex-column"
                 ]
@@ -130,7 +149,9 @@ view model =
                     ]
                 ]
             ]
-        , H.div_
+        , H.div
+            [ A.class' "ma3"
+            ]
             [ H.div
                 [ A.class' "flex flex-column" ]
                 ( ( \{ value, label, id } ->
@@ -149,10 +170,89 @@ view model =
                   H.div
                     [ A.class' "mt3"
                     ]
-                    [ H.text "Defense Selected"
+                    [ H.div_
+                        [ switch
+                            (isToggled model.dodgeTokens)
+                            (const $ DodgeTokensChanged $ toggle model.dodgeTokens)
+                            { label: "Dodge Tokens", id: "dodge-tokens-switch" }
+                        ]
                     ]
                 Nothing -> H.text ""
             ]
+        ]
+    ]
+
+switch ::
+  Boolean ->
+  (Boolean -> Msg) ->
+  { label :: String, id :: String } ->
+  Html Msg
+switch isOn onChange { label, id } =
+  H.div
+    [ A.class' "dib"
+    ]
+    [ H.input
+        [ A.type' "checkbox"
+        , A.class' "dn"
+        , A.id id
+        , A.name id
+        , A.checked isOn
+        , E.onCheck onChange
+        ]
+    , H.label
+        [ A.class' "dib pointer"
+        , A.for id
+        ]
+        [ H.div
+            [ A.class' "inline-flex" ]
+            [ H.div
+                [ A.class'
+                    { "dib center br-pill ba b--black-50 relative": true
+                    , "bg-white": not isOn
+                    , "bg-light-gray": isOn
+                    }
+                , A.style
+                    { "width": "2rem"
+                    , "height": ".75rem"
+                    }
+                ]
+                [ H.div'
+                    [ A.class'
+                        { "dib br-100 absolute ba b--black": true
+                        , "bg-gray": isOn
+                        , "bg-light-gray": not isOn
+                        }
+                    , A.style
+                        { "width": "1.2rem"
+                        , "height": "1.2rem"
+                        , "top": "calc(50% - 0.6rem)"
+                        , "transition": "0.33s"
+                        , "left":
+                            if not isOn then
+                              "calc(0% - 0.2rem)"
+                            else
+                              "calc(100% - 1rem)"
+                        }
+                    ]
+                ]
+            , H.div
+                [ A.class'
+                    { "dib f7 pl2": true
+                    , "black-50": not isOn
+                    , "black-80": isOn
+                    }
+                ]
+                [ H.text $ if isOn then "( Enabled )" else "( Disabled )" ]
+            ]
+        , H.br
+        , H.span
+            [ A.class'
+                { "black-50": not isOn
+                , "black-70 fw6": isOn
+                , "f5": true
+                }
+            ]
+            [ H.text label ]
         ]
     ]
 
@@ -165,7 +265,7 @@ radioSelect ::
   Html Msg
 radioSelect selected onSelect { label, id } =
   H.div
-    [ A.class' ""
+    [ A.class' "dib"
     ]
     [ H.input
         [ A.type' "radio"
