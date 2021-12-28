@@ -104,12 +104,29 @@ view model =
             , H.div
                 [ A.class' "mt3"
                 ]
-                [ H.label_ [ H.text "Attack Count" ]
+                [ H.label
+                    [ A.class' "fw5" ]
+                    [ H.text "Attack Count" ]
                 , H.br
-                , H.input
-                    [ A.type' "number"
-                    , A.value $ show model.attackCount
-                    , E.onInput AttackCountChanged
+                , H.div
+                    [ A.class' "inline-flex" ]
+                    [ H.button
+                        [ A.class' "self-stretch ba b--black-20 bg-black-70 w2 white pointer"
+                        , E.onClick $ AttackCountChanged $ show $ model.attackCount - 1
+                        ]
+                        [ H.text "-"
+                        ]
+                    , H.input
+                        [ A.type' "text"
+                        , A.value $ show model.attackCount
+                        , E.onInput AttackCountChanged
+                        , A.class' "bt bb br-0 bl-0 pa2 w3 outline-0 b--black-20 tc"
+                        ]
+                    , H.button
+                        [ A.class' "self-stretch ba b--black-20 bg-black-70 w2 white pointer"
+                        , E.onClick $ AttackCountChanged $ show $ model.attackCount + 1
+                        ]
+                        [ H.text "+" ]
                     ]
                 ]
             ]
@@ -165,7 +182,7 @@ radioSelect selected onSelect { label, id } =
         [ H.div
             [ A.class'
                 { "black-20": not selected
-                , "black-80": selected
+                , "black-70": selected
                 , "flex-grow-0 flex-shrink-0 mr2": true
                 }
             , A.style
@@ -177,8 +194,8 @@ radioSelect selected onSelect { label, id } =
             ]
         , H.div
             [ A.class'
-                { "black-20": not selected
-                , "black-80 fw6": selected
+                { "black-50": not selected
+                , "black-70 fw6": selected
                 , "mt1 f5": true
                 }
             ]
