@@ -46,8 +46,7 @@ rollBlocks config (Cons AttackRoll.Hit attacks) = do
   result <- lift $ lift $ applySurge config.surge <$> toResult config.variant <$> rollD6
   next <- rollBlocks config attacks
   state
-    ( \mods ->
-      case result of
+    ( \mods -> case result of
         Wound ->
           if mods.coverValue > 0 then
             Tuple (Cons Block next) (mods { coverValue = mods.coverValue - 1 })
@@ -57,11 +56,10 @@ rollBlocks config (Cons AttackRoll.Hit attacks) = do
             Tuple (Cons Wound next) mods
         Surge ->
           if mods.surgeTokens > 0 then
-            Tuple (Cons Block next) (mods { surgeTokens = mods.surgeTokens - 1})
+            Tuple (Cons Block next) (mods { surgeTokens = mods.surgeTokens - 1 })
           else
             Tuple (Cons Wound next) mods
-        Block ->
-          Tuple (Cons Block next) mods
+        Block -> Tuple (Cons Block next) mods
     )
 
 rollBlocks surge (Cons AttackRoll.Crit attacks) = (Cons Wound) <$> rollBlocks surge attacks

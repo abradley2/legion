@@ -20,6 +20,7 @@ import Flame.Html.Element as H
 import Flame.Html.Event as E
 import Flame.Types (Source(..))
 import Foreign.Object as Object
+import Icon as Icon
 
 type Model
   = { attackVariant :: AttackRoll.Variant
@@ -80,7 +81,7 @@ update model ReceivedHelloEvent = model :> []
 view :: Model -> Html Msg
 view model =
   H.div
-    [ A.class' "center measure pv3"
+    [ A.class' "center measure pv3 avenir"
     ]
     [ H.div
         [ A.class' "flex"
@@ -126,6 +127,14 @@ view model =
                       , { value: Just DefenseRoll.Red, label: "Red", id: "red-defense-variant" }
                       ]
                 )
+            , case model.defenseVariant of
+                Just _ ->
+                  H.div
+                    [ A.class' "mt3"
+                    ]
+                    [ H.text "Defense Selected"
+                    ]
+                Nothing -> H.text ""
             ]
         ]
     ]
@@ -143,16 +152,39 @@ radioSelect selected onSelect { label, id } =
     ]
     [ H.input
         [ A.type' "radio"
+        , A.class' "dn"
         , A.id id
         , A.name id
         , A.checked selected
         , E.onCheck $ const onSelect
         ]
     , H.label
-        [ A.class' ""
+        [ A.class' "inline-flex items-center pointer"
         , A.for id
         ]
-        [ H.text label ]
+        [ H.div
+            [ A.class'
+                { "black-20": not selected
+                , "black-80": selected
+                , "flex-grow-0 flex-shrink-0 mr2": true
+                }
+            , A.style
+                { "height": "1.5rem"
+                , "width": "1.5rem"
+                }
+            ]
+            [ Icon.radioButton selected
+            ]
+        , H.div
+            [ A.class'
+                { "black-20": not selected
+                , "black-80 fw6": selected
+                , "mt1 f5": true
+                }
+            ]
+            [ H.text label
+            ]
+        ]
     ]
 
 app :: Application Model Msg

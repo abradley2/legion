@@ -108,7 +108,7 @@ resolveMods config (Cons Miss attacks) = do
               Tuple (Cons Hit next) (nextMods { surgeTokens = nextMods.surgeTokens - 1 })
             else
               Tuple (Cons Miss next) nextMods
-          _ -> Tuple (Cons reroll next) (mods { rerolls = mods.rerolls - 1 })
+          _ -> Tuple (Cons reroll next) nextMods
     else
       Tuple (Cons Miss next) mods
 
