@@ -70,6 +70,8 @@ data Variant
   = Red
   | White
 
+derive instance eqVariant :: Eq Variant
+
 data Result
   = Block
   | Wound

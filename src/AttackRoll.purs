@@ -43,6 +43,13 @@ data Variant
   | Red
   | Black
 
+derive instance genericVariant :: Generic Variant _
+
+derive instance eqVariant :: Eq Variant
+
+instance showVariant :: Show Variant where
+  show = genericShow
+
 toResult :: Variant -> D8 -> Result
 toResult White d8
   | elem d8 $ downFromIncluding Five = Miss

@@ -4,7 +4,7 @@ import Prelude
 import AttackRoll (rollAttacks)
 import AttackRoll as AttackRoll
 import Control.Monad.Except (runExceptT)
-import Control.Monad.State (evalStateT, runStateT)
+import Control.Monad.State (evalStateT)
 import Data.Array as Array
 import Data.Either (either)
 import Data.Foldable (foldr)

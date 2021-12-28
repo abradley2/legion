@@ -1,7 +1,6 @@
 module Main
   ( main
-  )
-  where
+  ) where
 
 import Prelude
 import AttackRoll as AttackRoll
@@ -16,6 +15,7 @@ import Effect.Aff (Aff)
 import Effect.Class (liftEffect)
 import Flame (Html, QuerySelector(..), mount_, (:>))
 import Flame.Application.EffectList (Application)
+import Flame.Html.Attribute as A
 import Flame.Html.Element as H
 import Flame.Html.Event as E
 import Flame.Types (Source(..))
@@ -79,11 +79,80 @@ update model ReceivedHelloEvent = model :> []
 
 view :: Model -> Html Msg
 view model =
-  H.div_
-    [ H.button
-        [ E.onClick TriggerHelloEvent
+  H.div
+    [ A.class' "center measure pv3"
+    ]
+    [ H.div
+        [ A.class' "flex"
         ]
-        [ H.text "Trigger external event" ]
+        [ H.div_
+            [ H.div
+                [ A.class' "flex flex-column"
+                ]
+                ( ( \{ value, label, id } ->
+                      radioSelect
+                        (value == model.attackVariant)
+                        (AttackVariantSelected value)
+                        { label, id }
+                  )
+                    <$> [ { value: AttackRoll.White, label: "White", id: "white-attack-variant" }
+                      , { value: AttackRoll.Black, label: "Black", id: "black-attack-variant" }
+                      , { value: AttackRoll.Red, label: "Red", id: "red-attack-variant" }
+                      ]
+                )
+            , H.div
+                [ A.class' "mt3"
+                ]
+                [ H.label_ [ H.text "Attack Count" ]
+                , H.br
+                , H.input
+                    [ A.type' "number"
+                    , A.value $ show model.attackCount
+                    , E.onInput AttackCountChanged
+                    ]
+                ]
+            ]
+        , H.div_
+            [ H.div
+                [ A.class' "flex flex-column" ]
+                ( ( \{ value, label, id } ->
+                      radioSelect
+                        (value == model.defenseVariant)
+                        (DefenseVariantSelected value)
+                        { label, id }
+                  )
+                    <$> [ { value: Nothing, label: "(No Defense)", id: "no-defense-variant" }
+                      , { value: Just DefenseRoll.White, label: "White", id: "white-defense-variant" }
+                      , { value: Just DefenseRoll.Red, label: "Red", id: "red-defense-variant" }
+                      ]
+                )
+            ]
+        ]
+    ]
+
+radioSelect ::
+  Boolean ->
+  Msg ->
+  { label :: String
+  , id :: String
+  } ->
+  Html Msg
+radioSelect selected onSelect { label, id } =
+  H.div
+    [ A.class' ""
+    ]
+    [ H.input
+        [ A.type' "radio"
+        , A.id id
+        , A.name id
+        , A.checked selected
+        , E.onCheck $ const onSelect
+        ]
+    , H.label
+        [ A.class' ""
+        , A.for id
+        ]
+        [ H.text label ]
     ]
 
 app :: Application Model Msg
