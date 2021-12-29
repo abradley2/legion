@@ -6,7 +6,7 @@ import Prelude
 import AttackRoll as AttackRoll
 import CustomEvent (customEvent, dispatchDocumentEvent)
 import Data.Int as Int
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Tuple (Tuple)
 import Data.Tuple.Nested (tuple3)
 import DefenseRoll as DefenseRoll
@@ -35,6 +35,11 @@ toggle :: forall a. Toggleable a -> Toggleable a
 toggle = case _ of
   Enabled val -> Disabled val
   Disabled val -> Enabled val
+
+toggleableVal :: forall a. Toggleable a -> a
+toggleableVal = case _ of
+  Enabled val -> val
+  Disabled val -> val
 
 type Model
   = { attackVariant :: AttackRoll.Variant
@@ -95,6 +100,43 @@ update model TriggerHelloEvent = model :> [ triggerHelloEvent ]
 
 update model ReceivedHelloEvent = model :> []
 
+numberInput :: forall msg. { label :: Maybe String, id :: String, value :: Int, onChange :: String -> msg } -> Html msg
+numberInput { label, id, value, onChange } =
+  H.div
+    [ A.class' "dib"
+    ]
+    [ case label of
+        Just labelText ->
+          H.label
+            [ A.class' "fw5"
+            , A.for id
+            ]
+            [ H.text labelText ]
+        _ -> H.text ""
+    , maybe (H.text "") (const H.br) label
+    , H.div
+        [ A.class' "inline-flex" ]
+        [ H.button
+            [ A.class' "self-stretch ba b--black-20 bg-black-70 w2 white pointer"
+            , E.onClick $ onChange $ show $ value - 1
+            ]
+            [ H.text "-"
+            ]
+        , H.input
+            [ A.type' "text"
+            , A.id id
+            , A.value $ show value
+            , E.onInput onChange
+            , A.class' "bt bb br-0 bl-0 pa2 w3 outline-0 b--black-20 tc"
+            ]
+        , H.button
+            [ A.class' "self-stretch ba b--black-20 bg-black-70 w2 white pointer"
+            , E.onClick $ onChange $ show $ value + 1
+            ]
+            [ H.text "+" ]
+        ]
+    ]
+
 view :: Model -> Html Msg
 view model =
   H.div
@@ -123,30 +165,12 @@ view model =
             , H.div
                 [ A.class' "mt3"
                 ]
-                [ H.label
-                    [ A.class' "fw5" ]
-                    [ H.text "Attack Count" ]
-                , H.br
-                , H.div
-                    [ A.class' "inline-flex" ]
-                    [ H.button
-                        [ A.class' "self-stretch ba b--black-20 bg-black-70 w2 white pointer"
-                        , E.onClick $ AttackCountChanged $ show $ model.attackCount - 1
-                        ]
-                        [ H.text "-"
-                        ]
-                    , H.input
-                        [ A.type' "text"
-                        , A.value $ show model.attackCount
-                        , E.onInput AttackCountChanged
-                        , A.class' "bt bb br-0 bl-0 pa2 w3 outline-0 b--black-20 tc"
-                        ]
-                    , H.button
-                        [ A.class' "self-stretch ba b--black-20 bg-black-70 w2 white pointer"
-                        , E.onClick $ AttackCountChanged $ show $ model.attackCount + 1
-                        ]
-                        [ H.text "+" ]
-                    ]
+                [ numberInput
+                    { id: "attack-count-input"
+                    , label: Just "Attack Count"
+                    , value: model.attackCount
+                    , onChange: AttackCountChanged
+                    }
                 ]
             ]
         , H.div
@@ -167,14 +191,50 @@ view model =
                 )
             , case model.defenseVariant of
                 Just _ ->
-                  H.div
-                    [ A.class' "mt3"
-                    ]
-                    [ H.div_
+                  H.div_
+                    [ H.div
+                        [ A.class' "mt3" ]
                         [ switch
                             (isToggled model.dodgeTokens)
                             (const $ DodgeTokensChanged $ toggle model.dodgeTokens)
                             { label: "Dodge Tokens", id: "dodge-tokens-switch" }
+                        , H.div
+                            [ A.class'
+                                { "overflow-hidden": true
+                                , "h3 pv2": isToggled model.dodgeTokens
+                                , "h0": not $ isToggled model.dodgeTokens
+                                }
+                            , A.style1 "transition" "0.33s"
+                            ]
+                            [ numberInput
+                                { label: Nothing
+                                , value: toggleableVal model.dodgeTokens
+                                , id: "dodge-tokens-count-input"
+                                , onChange: Int.fromString >>> fromMaybe 0 >>> Enabled >>> DodgeTokensChanged
+                                }
+                            ]
+                        ]
+                    , H.div
+                        [ A.class' "mt3" ]
+                        [ switch
+                            (isToggled model.defenseSurgeTokens)
+                            (const $ DefenseSurgeTokensChanged $ toggle model.defenseSurgeTokens)
+                            { label: "Surge Tokens", id: "defense-surge-tokens-switch" }
+                        , H.div
+                            [ A.class'
+                                { "overflow-hidden": true
+                                , "h3 pv2": isToggled model.defenseSurgeTokens
+                                , "h0": not $ isToggled model.defenseSurgeTokens
+                                }
+                            , A.style1 "transition" "0.33s"
+                            ]
+                            [ numberInput
+                                { label: Nothing
+                                , value: toggleableVal model.defenseSurgeTokens
+                                , id: "defense-surge-tokens-count-input"
+                                , onChange: Int.fromString >>> fromMaybe 0 >>> Enabled >>> DefenseSurgeTokensChanged
+                                }
+                            ]
                         ]
                     ]
                 Nothing -> H.text ""
