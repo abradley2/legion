@@ -1,15 +1,4 @@
-module Main
-  ( Model
-  , Msg
-  , Toggleable
-  , attackModGridView
-  , attackConfigView
-  , defenseConfigView
-  , main
-  , toggleGroup
-  , update
-  , view
-  ) where
+module Main where
 
 import Prelude
 import AttackRoll as AttackRoll
@@ -50,6 +39,17 @@ toggleableVal = case _ of
   Enabled val -> val
   Disabled val -> val
 
+data DefenseSurge
+  = SurgeBlock
+
+derive instance eqDefenseSurge :: Eq DefenseSurge
+
+data AttackSurge
+  = SurgeHit
+  | SurgeCrit
+
+derive instance eqAttackSurge :: Eq AttackSurge
+
 type Model
   = { attackVariant :: AttackRoll.Variant
     , attackCount :: Int
@@ -60,6 +60,10 @@ type Model
     , dodgeTokens :: Toggleable Int
     , precise :: Toggleable Int
     , critical :: Toggleable Int
+    , dangerSense :: Toggleable Int
+    , cover :: Toggleable Int
+    , attackSurge :: Maybe AttackSurge
+    , defenseSurge :: Maybe DefenseSurge
     }
 
 data Msg
@@ -74,6 +78,10 @@ data Msg
   | DefenseSurgeTokensChanged (Toggleable Int)
   | PreciseChanged (Toggleable Int)
   | CriticalChanged (Toggleable Int)
+  | DangerSenseChanged (Toggleable Int)
+  | CoverChanged (Toggleable Int)
+  | AttackSurgeChanged (Maybe AttackSurge)
+  | DefenseSurgeChanged (Maybe DefenseSurge)
 
 triggerHelloEvent :: Aff (Maybe Msg)
 triggerHelloEvent = liftEffect $ const Nothing <$> dispatchDocumentEvent (customEvent "hello" Object.empty)
@@ -87,12 +95,32 @@ init =
   , aimTokens: Disabled 0
   , precise: Disabled 0
   , critical: Disabled 0
+  , dangerSense: Disabled 0
+  , cover: Disabled 0
   , defenseVariant: Just DefenseRoll.White
   , attackCount: 0
+  , attackSurge: Nothing
+  , defenseSurge: Nothing
   }
     :> []
 
 update :: Model -> Msg -> Tuple Model (Array (Aff (Maybe Msg)))
+update model (AttackSurgeChanged attackSurge) =
+  model { attackSurge = attackSurge }
+    :> []
+
+update model (DefenseSurgeChanged defenseSurge) =
+  model { defenseSurge = defenseSurge }
+    :> []
+
+update model (DangerSenseChanged dangerSense) =
+  model { dangerSense = dangerSense }
+    :> []
+
+update model (CoverChanged cover) =
+  model { cover = cover }
+    :> []
+
 update model (PreciseChanged precise) =
   model { precise = precise }
     :> []
@@ -176,10 +204,10 @@ view model =
     [ A.class' "flex justify-center ma3 avenir"
     ]
     [ H.div
-        [ A.class' "flex flex-wrap na3 items-start mw7"
+        [ A.class' "flex flex-column items-center items-start-l flex-row-l flex-wrap-l na3 items-start mw7"
         ]
         [ H.div
-            [ A.class' "pa3 w-50" ]
+            [ A.class' "pa3 w-50-l" ]
             [ H.div
                 [ A.class' "pa4 shadow-5" ]
                 [ H.div
@@ -190,7 +218,7 @@ view model =
                 ]
             ]
         , H.div
-            [ A.class' "pa3 w-50"
+            [ A.class' "pa3 w-50-l"
             ]
             [ H.div
                 [ A.class' "pa4 shadow-5" ]
@@ -209,7 +237,7 @@ attackConfigView :: Model -> Html Msg
 attackConfigView model =
   H.div_
     [ H.div
-        [ A.class' "flex flex-column"
+        [ A.class' "inline-flex flex-column w-50"
         ]
         ( ( \{ value, label, id } ->
               radioSelect
@@ -220,6 +248,19 @@ attackConfigView model =
             <$> [ { value: AttackRoll.White, label: "White", id: "white-attack-variant" }
               , { value: AttackRoll.Black, label: "Black", id: "black-attack-variant" }
               , { value: AttackRoll.Red, label: "Red", id: "red-attack-variant" }
+              ]
+        )
+    , H.div
+        [ A.class' "inline-flex flex-column w-50" ]
+        ( ( \{ value, label, id } ->
+              radioSelect
+                (value == model.attackSurge)
+                (AttackSurgeChanged value)
+                { label, id }
+          )
+            <$> [ { value: Nothing, label: "( No Surge )", id: "attack-surge-none" }
+              , { value: Just SurgeHit, label: "Surge Hit", id: "attack-surge-hit" }
+              , { value: Just SurgeCrit, label: "Surge Crit", id: "attack-surge-crit" }
               ]
         )
     , H.div
@@ -281,7 +322,7 @@ attackModGridView model =
         [ A.class' "ma3" ]
         $ toggleGroup
             { id: "critical"
-            , label: "Critical N"
+            , label: "Critical X"
             , value: model.critical
             , onChange: CriticalChanged
             }
@@ -289,7 +330,7 @@ attackModGridView model =
         [ A.class' "ma3" ]
         $ toggleGroup
             { id: "precise"
-            , label: "Precise N"
+            , label: "Precise X"
             , value: model.precise
             , onChange: PreciseChanged
             }
@@ -299,16 +340,28 @@ defenseConfigView :: Model -> Html Msg
 defenseConfigView model =
   H.div_
     [ H.div
-        [ A.class' "flex flex-column" ]
+        [ A.class' "inline-flex w-50 flex-column" ]
         ( ( \{ value, label, id } ->
               radioSelect
                 (value == model.defenseVariant)
                 (DefenseVariantSelected value)
                 { label, id }
           )
-            <$> [ { value: Nothing, label: "(No Defense)", id: "no-defense-variant" }
+            <$> [ { value: Nothing, label: "( No Defense )", id: "no-defense-variant" }
               , { value: Just DefenseRoll.White, label: "White", id: "white-defense-variant" }
               , { value: Just DefenseRoll.Red, label: "Red", id: "red-defense-variant" }
+              ]
+        )
+    , H.div
+        [ A.class' "inline-flex w-50 flex-column pl2" ]
+        ( ( \{ value, label, id } ->
+              radioSelect
+                (value == model.defenseSurge)
+                (DefenseSurgeChanged value)
+                { label, id }
+          )
+            <$> [ { value: Nothing, label: "( No Surge )", id: "defense-surge-none" }
+              , { value: Just SurgeBlock, label: "Surge Block", id: "defense-surge-block" }
               ]
         )
     , case model.defenseVariant of
@@ -338,6 +391,22 @@ defenseModGridView model =
             , label: "Dodge Tokens"
             , value: model.dodgeTokens
             , onChange: DodgeTokensChanged
+            }
+    , H.div
+        [ A.class' "ma3" ]
+        $ toggleGroup
+            { id: "danger-sense"
+            , label: "Danger Sense"
+            , value: model.dangerSense
+            , onChange: DangerSenseChanged
+            }
+    , H.div
+        [ A.class' "ma3" ]
+        $ toggleGroup
+            { id: "cover"
+            , label: "Cover X"
+            , value: model.cover
+            , onChange: CoverChanged
             }
     ]
 
