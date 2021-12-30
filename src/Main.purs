@@ -1,5 +1,14 @@
 module Main
-  ( main
+  ( Model
+  , Msg
+  , Toggleable
+  , attackModGridView
+  , attackConfigView
+  , defenseConfigView
+  , main
+  , toggleGroup
+  , update
+  , view
   ) where
 
 import Prelude
@@ -49,6 +58,8 @@ type Model
     , defenseVariant :: Maybe DefenseRoll.Variant
     , defenseSurgeTokens :: Toggleable Int
     , dodgeTokens :: Toggleable Int
+    , precise :: Toggleable Int
+    , critical :: Toggleable Int
     }
 
 data Msg
@@ -57,8 +68,12 @@ data Msg
   | AttackVariantSelected AttackRoll.Variant
   | DefenseVariantSelected (Maybe DefenseRoll.Variant)
   | AttackCountChanged String
+  | AimTokensChanged (Toggleable Int)
+  | AttackSurgeTokensChanged (Toggleable Int)
   | DodgeTokensChanged (Toggleable Int)
   | DefenseSurgeTokensChanged (Toggleable Int)
+  | PreciseChanged (Toggleable Int)
+  | CriticalChanged (Toggleable Int)
 
 triggerHelloEvent :: Aff (Maybe Msg)
 triggerHelloEvent = liftEffect $ const Nothing <$> dispatchDocumentEvent (customEvent "hello" Object.empty)
@@ -70,12 +85,30 @@ init =
   , defenseSurgeTokens: Disabled 0
   , dodgeTokens: Disabled 0
   , aimTokens: Disabled 0
+  , precise: Disabled 0
+  , critical: Disabled 0
   , defenseVariant: Just DefenseRoll.White
   , attackCount: 0
   }
     :> []
 
 update :: Model -> Msg -> Tuple Model (Array (Aff (Maybe Msg)))
+update model (PreciseChanged precise) =
+  model { precise = precise }
+    :> []
+
+update model (CriticalChanged critical) =
+  model { critical = critical }
+    :> []
+
+update model (AttackSurgeTokensChanged attackSurgeTokens) =
+  model { attackSurgeTokens = attackSurgeTokens }
+    :> []
+
+update model (AimTokensChanged aimTokens) =
+  model { aimTokens = aimTokens }
+    :> []
+
 update model (DefenseSurgeTokensChanged defenseSurgeTokens) =
   model { defenseSurgeTokens = defenseSurgeTokens }
     :> []
@@ -140,106 +173,172 @@ numberInput { label, id, value, onChange } =
 view :: Model -> Html Msg
 view model =
   H.div
-    [ A.class' "center measure pv3 avenir"
+    [ A.class' "flex justify-center ma3 avenir"
     ]
     [ H.div
-        [ A.class' "flex flex-wrap na3"
+        [ A.class' "flex flex-wrap na3 items-start mw7"
         ]
         [ H.div
-            [ A.class' "ma3"
-            ]
+            [ A.class' "pa3 w-50" ]
             [ H.div
-                [ A.class' "flex flex-column"
-                ]
-                ( ( \{ value, label, id } ->
-                      radioSelect
-                        (value == model.attackVariant)
-                        (AttackVariantSelected value)
-                        { label, id }
-                  )
-                    <$> [ { value: AttackRoll.White, label: "White", id: "white-attack-variant" }
-                      , { value: AttackRoll.Black, label: "Black", id: "black-attack-variant" }
-                      , { value: AttackRoll.Red, label: "Red", id: "red-attack-variant" }
-                      ]
-                )
-            , H.div
-                [ A.class' "mt3"
-                ]
-                [ numberInput
-                    { id: "attack-count-input"
-                    , label: Just "Attack Count"
-                    , value: model.attackCount
-                    , onChange: AttackCountChanged
-                    }
+                [ A.class' "pa4 shadow-5" ]
+                [ H.div
+                    [ A.class' "tc black-80 f3 pb1 pt2 mb2 bb b--black-80 nl4 nr4 nt4 tracked ttu" ]
+                    [ H.text "Attack"
+                    ]
+                , attackConfigView model
                 ]
             ]
         , H.div
-            [ A.class' "ma3"
+            [ A.class' "pa3 w-50"
             ]
             [ H.div
-                [ A.class' "flex flex-column" ]
-                ( ( \{ value, label, id } ->
-                      radioSelect
-                        (value == model.defenseVariant)
-                        (DefenseVariantSelected value)
-                        { label, id }
-                  )
-                    <$> [ { value: Nothing, label: "(No Defense)", id: "no-defense-variant" }
-                      , { value: Just DefenseRoll.White, label: "White", id: "white-defense-variant" }
-                      , { value: Just DefenseRoll.Red, label: "Red", id: "red-defense-variant" }
-                      ]
-                )
-            , case model.defenseVariant of
-                Just _ ->
-                  H.div_
-                    [ H.div
-                        [ A.class' "mt3" ]
-                        [ switch
-                            (isToggled model.dodgeTokens)
-                            (const $ DodgeTokensChanged $ toggle model.dodgeTokens)
-                            { label: "Dodge Tokens", id: "dodge-tokens-switch" }
-                        , H.div
-                            [ A.class'
-                                { "overflow-hidden": true
-                                , "h3 pv2": isToggled model.dodgeTokens
-                                , "h0": not $ isToggled model.dodgeTokens
-                                }
-                            , A.style1 "transition" "0.33s"
-                            ]
-                            [ numberInput
-                                { label: Nothing
-                                , value: toggleableVal model.dodgeTokens
-                                , id: "dodge-tokens-count-input"
-                                , onChange: Int.fromString >>> fromMaybe 0 >>> Enabled >>> DodgeTokensChanged
-                                }
-                            ]
-                        ]
-                    , H.div
-                        [ A.class' "mt3" ]
-                        [ switch
-                            (isToggled model.defenseSurgeTokens)
-                            (const $ DefenseSurgeTokensChanged $ toggle model.defenseSurgeTokens)
-                            { label: "Surge Tokens", id: "defense-surge-tokens-switch" }
-                        , H.div
-                            [ A.class'
-                                { "overflow-hidden": true
-                                , "h3 pv2": isToggled model.defenseSurgeTokens
-                                , "h0": not $ isToggled model.defenseSurgeTokens
-                                }
-                            , A.style1 "transition" "0.33s"
-                            ]
-                            [ numberInput
-                                { label: Nothing
-                                , value: toggleableVal model.defenseSurgeTokens
-                                , id: "defense-surge-tokens-count-input"
-                                , onChange: Int.fromString >>> fromMaybe 0 >>> Enabled >>> DefenseSurgeTokensChanged
-                                }
-                            ]
-                        ]
+                [ A.class' "pa4 shadow-5" ]
+                [ H.div
+                    [ A.class' "tc black-80 f3 pb1 pt2 mb2 bb b--black-80 nl4 nr4 nt4 tracked ttu"
                     ]
-                Nothing -> H.text ""
+                    [ H.text "Defense"
+                    ]
+                , defenseConfigView model
+                ]
             ]
         ]
+    ]
+
+attackConfigView :: Model -> Html Msg
+attackConfigView model =
+  H.div_
+    [ H.div
+        [ A.class' "flex flex-column"
+        ]
+        ( ( \{ value, label, id } ->
+              radioSelect
+                (value == model.attackVariant)
+                (AttackVariantSelected value)
+                { label, id }
+          )
+            <$> [ { value: AttackRoll.White, label: "White", id: "white-attack-variant" }
+              , { value: AttackRoll.Black, label: "Black", id: "black-attack-variant" }
+              , { value: AttackRoll.Red, label: "Red", id: "red-attack-variant" }
+              ]
+        )
+    , H.div
+        [ A.class' "mv3" ]
+        [ numberInput
+            { id: "attack-count-input"
+            , label: Just "Attack Count"
+            , value: model.attackCount
+            , onChange: AttackCountChanged
+            }
+        ]
+    , attackModGridView model
+    ]
+
+toggleGroup :: { label :: String, id :: String, onChange :: (Toggleable Int -> Msg), value :: Toggleable Int } -> Array (Html Msg)
+toggleGroup { label, id, onChange, value } =
+  [ switch
+      (isToggled value)
+      (const $ onChange $ toggle value)
+      { label, id: id <> "-switch" }
+  , H.div
+      [ A.class'
+          { "overflow-hidden": true
+          , "h3 pv2": isToggled value
+          , "h0": not $ isToggled value
+          }
+      , A.style1 "transition" "0.33s"
+      ]
+      [ numberInput
+          { label: Nothing
+          , value: toggleableVal value
+          , id: id <> "-input"
+          , onChange: Int.fromString >>> fromMaybe 0 >>> Enabled >>> onChange
+          }
+      ]
+  ]
+
+attackModGridView :: Model -> Html Msg
+attackModGridView model =
+  H.div
+    [ A.class' "flex flex-wrap na3" ]
+    [ H.div
+        [ A.class' "ma3" ]
+        $ toggleGroup
+            { id: "attack-surge-tokens"
+            , label: "Surge Tokens"
+            , value: model.attackSurgeTokens
+            , onChange: AttackSurgeTokensChanged
+            }
+    , H.div
+        [ A.class' "ma3" ]
+        $ toggleGroup
+            { id: "aim-tokens"
+            , label: "Aim Tokens"
+            , value: model.aimTokens
+            , onChange: AimTokensChanged
+            }
+    , H.div
+        [ A.class' "ma3" ]
+        $ toggleGroup
+            { id: "critical"
+            , label: "Critical N"
+            , value: model.critical
+            , onChange: CriticalChanged
+            }
+    , H.div
+        [ A.class' "ma3" ]
+        $ toggleGroup
+            { id: "precise"
+            , label: "Precise N"
+            , value: model.precise
+            , onChange: PreciseChanged
+            }
+    ]
+
+defenseConfigView :: Model -> Html Msg
+defenseConfigView model =
+  H.div_
+    [ H.div
+        [ A.class' "flex flex-column" ]
+        ( ( \{ value, label, id } ->
+              radioSelect
+                (value == model.defenseVariant)
+                (DefenseVariantSelected value)
+                { label, id }
+          )
+            <$> [ { value: Nothing, label: "(No Defense)", id: "no-defense-variant" }
+              , { value: Just DefenseRoll.White, label: "White", id: "white-defense-variant" }
+              , { value: Just DefenseRoll.Red, label: "Red", id: "red-defense-variant" }
+              ]
+        )
+    , case model.defenseVariant of
+        Just _ ->
+          H.div
+            [ A.class' "mt3" ]
+            [ defenseModGridView model ]
+        Nothing -> H.text ""
+    ]
+
+defenseModGridView :: Model -> Html Msg
+defenseModGridView model =
+  H.div
+    [ A.class' "flex flex-wrap na3" ]
+    [ H.div
+        [ A.class' "ma3" ]
+        $ toggleGroup
+            { id: "defense-surge-tokens"
+            , label: "Surge Tokens"
+            , value: model.defenseSurgeTokens
+            , onChange: DefenseSurgeTokensChanged
+            }
+    , H.div
+        [ A.class' "ma3" ]
+        $ toggleGroup
+            { id: "dodge-tokens"
+            , label: "Dodge Tokens"
+            , value: model.dodgeTokens
+            , onChange: DodgeTokensChanged
+            }
     ]
 
 switch ::
