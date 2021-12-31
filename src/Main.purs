@@ -1,4 +1,4 @@
-module Main where
+module Main (main) where
 
 import Prelude
 import AttackRoll as AttackRoll
@@ -64,6 +64,7 @@ type Model
     , cover :: Toggleable Int
     , attackSurge :: Maybe AttackSurge
     , defenseSurge :: Maybe DefenseSurge
+    , dropdownOpen :: Boolean
     }
 
 data Msg
@@ -82,6 +83,7 @@ data Msg
   | CoverChanged (Toggleable Int)
   | AttackSurgeChanged (Maybe AttackSurge)
   | DefenseSurgeChanged (Maybe DefenseSurge)
+  | ToggleDropdown Boolean
 
 triggerHelloEvent :: Aff (Maybe Msg)
 triggerHelloEvent = liftEffect $ const Nothing <$> dispatchDocumentEvent (customEvent "hello" Object.empty)
@@ -101,10 +103,15 @@ init =
   , attackCount: 0
   , attackSurge: Nothing
   , defenseSurge: Nothing
+  , dropdownOpen: false
   }
     :> []
 
 update :: Model -> Msg -> Tuple Model (Array (Aff (Maybe Msg)))
+update model (ToggleDropdown dropdownOpen) =
+  model { dropdownOpen = dropdownOpen }
+    :> []
+
 update model (AttackSurgeChanged attackSurge) =
   model { attackSurge = attackSurge }
     :> []
@@ -178,23 +185,36 @@ numberInput { label, id, value, onChange } =
     , H.div
         [ A.class' "inline-flex" ]
         [ H.button
-            [ A.class' "self-stretch ba b--black-20 bg-black-70 w2 white pointer"
+            [ A.class' "self-stretch ba b--black-20 bg-black-70 white pointer"
             , E.onClick $ onChange $ show $ value - 1
             ]
-            [ H.text "-"
+            [ H.span
+                [ A.class' "dib pt1"
+                , A.style1 "width" "1.5rem"
+                , A.style1 "height" "1.5rem"
+                ]
+                [ Icon.removeCircle
+                ]
             ]
         , H.input
             [ A.type' "text"
             , A.id id
             , A.value $ show value
             , E.onInput onChange
-            , A.class' "bt bb br-0 bl-0 pa2 w3 outline-0 b--black-20 tc"
+            , A.class' "bt bb br-0 bl-0 pa2 w3 outline-0 b--black-20 tc f5 lh-title"
             ]
         , H.button
-            [ A.class' "self-stretch ba b--black-20 bg-black-70 w2 white pointer"
+            [ A.class' "self-stretch ba b--black-20 bg-black-70 white pointer"
             , E.onClick $ onChange $ show $ value + 1
             ]
-            [ H.text "+" ]
+            [ H.span
+                [ A.class' "dib pt1"
+                , A.style1 "width" "1.5rem"
+                , A.style1 "height" "1.5rem"
+                ]
+                [ Icon.addCircle
+                ]
+            ]
         ]
     ]
 
@@ -204,7 +224,8 @@ view model =
     [ A.class' "flex justify-center ma3 avenir"
     ]
     [ H.div
-        [ A.class' "flex flex-column items-center items-start-l flex-row-l flex-wrap-l na3 items-start mw7"
+        [ A.class' "flex flex-column items-center items-start-l flex-row-l flex-wrap-l na3 items-start"
+        , A.style1 "max-width" "50rem"
         ]
         [ H.div
             [ A.class' "pa3 w-50-l" ]
@@ -264,13 +285,24 @@ attackConfigView model =
               ]
         )
     , H.div
-        [ A.class' "mv3" ]
-        [ numberInput
-            { id: "attack-count-input"
-            , label: Just "Attack Count"
-            , value: model.attackCount
-            , onChange: AttackCountChanged
-            }
+        [ A.class' "mv3 nl3 nr3 flex"
+        ]
+        [ H.div
+            [ A.class' "mh3" ]
+            [ numberInput
+                { id: "attack-count-input"
+                , label: Just "Attack Count"
+                , value: model.attackCount
+                , onChange: AttackCountChanged
+                }
+            ]
+        , H.div
+            [ A.class' "mh3" ]
+            [ dropdownMenu
+                { isOpen: model.dropdownOpen
+                , toggleOpen: ToggleDropdown
+                }
+            ]
         ]
     , attackModGridView model
     ]
@@ -370,6 +402,48 @@ defenseConfigView model =
             [ A.class' "mt3" ]
             [ defenseModGridView model ]
         Nothing -> H.text ""
+    ]
+
+dropdownMenu :: forall msg. { isOpen :: Boolean, toggleOpen :: Boolean -> msg } -> Html msg
+dropdownMenu { isOpen, toggleOpen } =
+  H.div
+    [ A.class' "inline-flex flex-column"
+    ]
+    [ H.label
+        [ A.class' "fw5"
+        ]
+        [ H.text "label" ]
+    , H.button
+        [ A.class' "ba b--black-80 bg-transparent w4 outline-0 pa2 f5 lh-title pointer"
+        , A.style1 "height" "2.5rem"
+        , E.onClick $ toggleOpen (not isOpen)
+        ]
+        [ H.text "_"
+        ]
+    , H.div
+        [ A.class' "relative w-100 overflow-visible"
+        ]
+        [ H.createElementNode "focus-menu"
+            [ A.class'
+                { "absolute left-0 right--1 z-1 flex flex-column items-stretch": true
+                , "bg-white pa2 ba b--black o-100 shadow-5 overflow-y-scroll": isOpen
+                , "o-0 overflow-hidden": not isOpen
+                }
+            , A.style1 "max-height" if isOpen then "15rem" else "0rem"
+            , A.style1 "top" if isOpen then "0.25rem" else "3rem"
+            , A.style1 "transition" "0.33s"
+            , A.createAttribute "show" $ show isOpen
+            , E.createEvent "requestedclose" (toggleOpen false)
+            ]
+            [ H.button
+                [ A.class' "hover-bg-blue" ]
+                [ H.text "Option one" ]
+            , H.button_
+                [ H.text "Option two" ]
+            , H.button_
+                [ H.text "Option three" ]
+            ]
+        ]
     ]
 
 defenseModGridView :: Model -> Html Msg
