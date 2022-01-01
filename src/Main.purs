@@ -123,32 +123,19 @@ newtype Cover
 
 derive instance newtypeCover :: Newtype Cover _
 
-data ValidForm
-  = ValidForm
-    AttackRoll.Variant
-    AttackCount
-    (Maybe DefenseRoll.Variant)
-    (Maybe AttackSurgeTokens)
-    (Maybe DefenseSurgeTokens)
-    (Maybe AimTokens)
-    (Maybe DodgeTokens)
-    (Maybe Precise)
-    (Maybe Critical)
-    (Maybe DangerSense)
-    (Maybe Cover)
-
-validForm =
-  { attackVariant: _
-  , attackCount: _
-  , defenseVariant: _
-  , attackSurgeTokens: _
-  , defenseSurgeTokens: _
-  , aimTokens: _
-  , precise: _
-  , critical: _
-  , dangerSense: _
-  , cover: _
-  }
+type ValidForm
+  = { attackVariant :: AttackRoll.Variant
+    , attackCount :: AttackCount
+    , defenseVariant :: Maybe DefenseRoll.Variant
+    , attackSurgeTokens :: Maybe AttackSurgeTokens
+    , defenseSurgeTokens :: Maybe DefenseSurgeTokens
+    , aimTokens :: Maybe AimTokens
+    , dodgeTokens :: Maybe DodgeTokens
+    , precise :: Maybe Precise
+    , critical :: Maybe Critical
+    , dangerSense :: Maybe DangerSense
+    , cover :: Maybe Cover
+    }
 
 isPositive :: String -> Int -> State (List String) (Maybe Int)
 isPositive name val =
@@ -164,57 +151,60 @@ isEnabledPositive name =
         Just val -> isPositive name val
         Nothing -> pure Nothing
 
-validateModel :: Model -> State (List String) (Maybe ValidForm)
-validateModel m =
-  (pure $ Just ValidForm)
-    >>= (map ((#) m.attackVariant) >>> pure)
-    >>= ( \next -> do
-          val <- isPositive "Attack Count" (unwrap m.attackCount)
-          pure case AttackCount <$> val of
-            Just attackCount -> (applyFlipped attackCount) <$> next
-            _ -> Nothing
-      )
-    >>= (map (applyFlipped m.defenseVariant) >>> pure)
-    >>= ( \next -> do
-          val <- isEnabledPositive "Attack Surge Tokens" (unwrap <$> m.attackSurgeTokens)
-          attackSurgeTokens <- pure $ AttackSurgeTokens <$> val
-          pure $ applyFlipped attackSurgeTokens <$> next
-      )
-    >>= ( \next -> do
-          val <- isEnabledPositive "Defense Surge Tokens" (unwrap <$> m.defenseSurgeTokens)
-          defenseSurgeTokens <- pure $ DefenseSurgeTokens <$> val
-          pure $ applyFlipped defenseSurgeTokens <$> next
-      )
-    >>= ( \next -> do
-          val <- isEnabledPositive "Aim Tokens" (unwrap <$> m.aimTokens)
-          aimTokens <- pure $ AimTokens <$> val
-          pure $ applyFlipped aimTokens <$> next
-      )
-    >>= ( \next -> do
-          val <- isEnabledPositive "Dodge Tokens" (unwrap <$> m.aimTokens)
-          dodgeTokens <- pure $ DodgeTokens <$> val
-          pure $ applyFlipped dodgeTokens <$> next
-      )
-    >>= ( \next -> do
-          val <- isEnabledPositive "Precise" (unwrap <$> m.precise)
-          precise <- pure $ Precise <$> val
-          pure $ applyFlipped precise <$> next
-      )
-    >>= ( \next -> do
-          val <- isEnabledPositive "Critical" (unwrap <$> m.critical)
-          critical <- pure $ Critical <$> val
-          pure $ applyFlipped critical <$> next
-      )
-    >>= ( \next -> do
-          val <- isEnabledPositive "Danger Sense" (unwrap <$> m.dangerSense)
-          dangerSense <- pure $ DangerSense <$> val
-          pure $ applyFlipped dangerSense <$> next
-      )
-    >>= ( \next -> do
-          val <- isEnabledPositive "Cover" (unwrap <$> m.cover)
-          cover <- pure $ Cover <$> val
-          pure $ applyFlipped cover <$> next
-      )
+validateModel' :: Model -> State (List String) (Maybe ValidForm)
+validateModel' m = do
+  attackCount <- do
+    val <- isPositive "Attack Count" (unwrap m.attackCount)
+    pure $ AttackCount <$> val
+  defenseVariant <- pure $ Just m.defenseVariant
+  attackSurgeTokens <- do
+    val <- isEnabledPositive "Attack Surge Tokens" (unwrap <$> m.attackSurgeTokens)
+    pure $ Just $ AttackSurgeTokens <$> val
+  defenseSurgeTokens <- do
+    val <- isEnabledPositive "Defense Surge Tokens" (unwrap <$> m.defenseSurgeTokens)
+    pure $ Just $ DefenseSurgeTokens <$> val
+  aimTokens <- do
+    val <- isEnabledPositive "Aim Tokens" (unwrap <$> m.aimTokens)
+    pure $ Just $ AimTokens <$> val
+  dodgeTokens <- do
+    val <- isEnabledPositive "Dodge Tokens" (unwrap <$> m.aimTokens)
+    pure $ Just $ DodgeTokens <$> val
+  precise <- do
+    val <- isEnabledPositive "Precise" (unwrap <$> m.precise)
+    pure $ Just $ Precise <$> val
+  critical <- do
+    val <- isEnabledPositive "Critical" (unwrap <$> m.critical)
+    pure $ Just $ Critical <$> val
+  dangerSense <- do
+    val <- isEnabledPositive "Danger Sense" (unwrap <$> m.dangerSense)
+    pure $ Just $ DangerSense <$> val
+  cover <- do
+    val <- isEnabledPositive "Cover" (unwrap <$> m.cover)
+    pure $ Just $ Cover <$> val
+  pure
+    $ { attackVariant: _
+      , attackCount: _
+      , defenseVariant: _
+      , attackSurgeTokens: _
+      , defenseSurgeTokens: _
+      , aimTokens: _
+      , dodgeTokens: _
+      , precise: _
+      , critical: _
+      , dangerSense: _
+      , cover: _
+      }
+    <$> Just m.attackVariant
+    <*> attackCount
+    <*> defenseVariant
+    <*> attackSurgeTokens
+    <*> defenseSurgeTokens
+    <*> aimTokens
+    <*> dodgeTokens
+    <*> precise
+    <*> critical
+    <*> dangerSense
+    <*> cover
 
 data Msg
   = AttackVariantSelected AttackRoll.Variant
