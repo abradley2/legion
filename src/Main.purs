@@ -3,24 +3,20 @@ module Main where
 import Prelude
 import AttackRoll as AttackRoll
 import Control.Monad.State (State, state)
-import CustomEvent (customEvent, dispatchDocumentEvent)
+import Data.Function (applyFlipped)
 import Data.Int as Int
 import Data.List (List(..))
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Newtype (class Newtype, unwrap, wrap)
 import Data.Tuple (Tuple(..))
-import Data.Tuple.Nested (tuple3)
 import DefenseRoll as DefenseRoll
 import Effect (Effect)
 import Effect.Aff (Aff)
-import Effect.Class (liftEffect)
 import Flame (Html, QuerySelector(..), mount_, (:>))
 import Flame.Application.EffectList (Application)
 import Flame.Html.Attribute as A
 import Flame.Html.Element as H
 import Flame.Html.Event as E
-import Flame.Types (Source(..))
-import Foreign.Object as Object
 import Icon as Icon
 
 data Toggleable a
@@ -134,6 +130,25 @@ data ValidForm
     (Maybe DefenseRoll.Variant)
     (Maybe AttackSurgeTokens)
     (Maybe DefenseSurgeTokens)
+    (Maybe AimTokens)
+    (Maybe DodgeTokens)
+    (Maybe Precise)
+    (Maybe Critical)
+    (Maybe DangerSense)
+    (Maybe Cover)
+
+validForm =
+  { attackVariant: _
+  , attackCount: _
+  , defenseVariant: _
+  , attackSurgeTokens: _
+  , defenseSurgeTokens: _
+  , aimTokens: _
+  , precise: _
+  , critical: _
+  , dangerSense: _
+  , cover: _
+  }
 
 isPositive :: String -> Int -> State (List String) (Maybe Int)
 isPositive name val =
@@ -155,28 +170,54 @@ validateModel m =
     >>= (map ((#) m.attackVariant) >>> pure)
     >>= ( \next -> do
           val <- isPositive "Attack Count" (unwrap m.attackCount)
-          pure case wrap <$> val of
-            Just attackCount -> ((#) attackCount) <$> next
+          pure case AttackCount <$> val of
+            Just attackCount -> (applyFlipped attackCount) <$> next
             _ -> Nothing
       )
-    >>= (map ((#) m.defenseVariant) >>> pure)
+    >>= (map (applyFlipped m.defenseVariant) >>> pure)
     >>= ( \next -> do
           val <- isEnabledPositive "Attack Surge Tokens" (unwrap <$> m.attackSurgeTokens)
-          let
-            attackSurgeTokens = wrap <$> val
-          pure ((#) attackSurgeTokens <$> next)
+          attackSurgeTokens <- pure $ AttackSurgeTokens <$> val
+          pure $ applyFlipped attackSurgeTokens <$> next
       )
     >>= ( \next -> do
           val <- isEnabledPositive "Defense Surge Tokens" (unwrap <$> m.defenseSurgeTokens)
-          let
-            defenseSurgeTokens = wrap <$> val
-          pure ((#) defenseSurgeTokens <$> next)
+          defenseSurgeTokens <- pure $ DefenseSurgeTokens <$> val
+          pure $ applyFlipped defenseSurgeTokens <$> next
+      )
+    >>= ( \next -> do
+          val <- isEnabledPositive "Aim Tokens" (unwrap <$> m.aimTokens)
+          aimTokens <- pure $ AimTokens <$> val
+          pure $ applyFlipped aimTokens <$> next
+      )
+    >>= ( \next -> do
+          val <- isEnabledPositive "Dodge Tokens" (unwrap <$> m.aimTokens)
+          dodgeTokens <- pure $ DodgeTokens <$> val
+          pure $ applyFlipped dodgeTokens <$> next
+      )
+    >>= ( \next -> do
+          val <- isEnabledPositive "Precise" (unwrap <$> m.precise)
+          precise <- pure $ Precise <$> val
+          pure $ applyFlipped precise <$> next
+      )
+    >>= ( \next -> do
+          val <- isEnabledPositive "Critical" (unwrap <$> m.critical)
+          critical <- pure $ Critical <$> val
+          pure $ applyFlipped critical <$> next
+      )
+    >>= ( \next -> do
+          val <- isEnabledPositive "Danger Sense" (unwrap <$> m.dangerSense)
+          dangerSense <- pure $ DangerSense <$> val
+          pure $ applyFlipped dangerSense <$> next
+      )
+    >>= ( \next -> do
+          val <- isEnabledPositive "Cover" (unwrap <$> m.cover)
+          cover <- pure $ Cover <$> val
+          pure $ applyFlipped cover <$> next
       )
 
 data Msg
-  = TriggerHelloEvent
-  | ReceivedHelloEvent
-  | AttackVariantSelected AttackRoll.Variant
+  = AttackVariantSelected AttackRoll.Variant
   | DefenseVariantSelected (Maybe DefenseRoll.Variant)
   | AttackCountChanged AttackCount
   | AimTokensChanged (Toggleable AimTokens)
@@ -190,9 +231,6 @@ data Msg
   | AttackSurgeChanged (Maybe AttackSurge)
   | DefenseSurgeChanged (Maybe DefenseSurge)
   | ToggleDropdown Boolean
-
-triggerHelloEvent :: Aff (Maybe Msg)
-triggerHelloEvent = liftEffect $ const Nothing <$> dispatchDocumentEvent (customEvent "hello" Object.empty)
 
 init :: Tuple Model (Array (Aff (Maybe Msg)))
 init =
@@ -269,10 +307,6 @@ update model (DefenseVariantSelected defenseVariant) =
 update model (AttackVariantSelected attackVariant) =
   model { attackVariant = attackVariant }
     :> []
-
-update model TriggerHelloEvent = model :> [ triggerHelloEvent ]
-
-update model ReceivedHelloEvent = model :> []
 
 numberInput :: forall msg. { label :: Maybe String, id :: String, value :: Int, onChange :: Int -> msg } -> Html msg
 numberInput { label, id, value, onChange } =
@@ -721,9 +755,7 @@ app =
   { init
   , update
   , view
-  , subscribe:
-      [ tuple3 Document "hello" (const ReceivedHelloEvent)
-      ]
+  , subscribe: []
   }
 
 main :: Effect Unit
