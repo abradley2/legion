@@ -42,7 +42,7 @@ class FocusMenu extends HTMLElement {
         }
 
         function handleFocusOut(e) {
-          if (node.contains(e.relatedTarget)) {
+          if (node.contains(e.relatedTarget) || e.relatedTarget.getAttribute('aria-controls') === node.getAttribute('id')) {
             return
           }
           node.dispatchEvent(new Event('requestedclose', {

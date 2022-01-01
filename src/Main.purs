@@ -1,11 +1,14 @@
-module Main (main) where
+module Main where
 
 import Prelude
 import AttackRoll as AttackRoll
+import Control.Monad.State (State, state)
 import CustomEvent (customEvent, dispatchDocumentEvent)
 import Data.Int as Int
+import Data.List (List(..))
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
-import Data.Tuple (Tuple)
+import Data.Newtype (class Newtype, unwrap, wrap)
+import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested (tuple3)
 import DefenseRoll as DefenseRoll
 import Effect (Effect)
@@ -24,6 +27,8 @@ data Toggleable a
   = Enabled a
   | Disabled a
 
+derive instance functorToggleable :: Functor Toggleable
+
 isToggled :: forall a. Toggleable a -> Boolean
 isToggled = case _ of
   Enabled _ -> true
@@ -34,10 +39,15 @@ toggle = case _ of
   Enabled val -> Disabled val
   Disabled val -> Enabled val
 
-toggleableVal :: forall a. Toggleable a -> a
-toggleableVal = case _ of
+unwrapToggleable :: forall a. Toggleable a -> a
+unwrapToggleable = case _ of
   Enabled val -> val
   Disabled val -> val
+
+getEnabled :: forall a. Toggleable a -> Maybe a
+getEnabled = case _ of
+  Enabled val -> Just val
+  _ -> Nothing
 
 data DefenseSurge
   = SurgeBlock
@@ -52,35 +62,131 @@ derive instance eqAttackSurge :: Eq AttackSurge
 
 type Model
   = { attackVariant :: AttackRoll.Variant
-    , attackCount :: Int
-    , attackSurgeTokens :: Toggleable Int
-    , aimTokens :: Toggleable Int
+    , attackCount :: AttackCount
+    , attackSurgeTokens :: Toggleable AttackSurgeTokens
+    , aimTokens :: Toggleable AimTokens
     , defenseVariant :: Maybe DefenseRoll.Variant
-    , defenseSurgeTokens :: Toggleable Int
-    , dodgeTokens :: Toggleable Int
-    , precise :: Toggleable Int
-    , critical :: Toggleable Int
-    , dangerSense :: Toggleable Int
-    , cover :: Toggleable Int
+    , defenseSurgeTokens :: Toggleable DefenseSurgeTokens
+    , dodgeTokens :: Toggleable DodgeTokens
+    , precise :: Toggleable Precise
+    , critical :: Toggleable Critical
+    , dangerSense :: Toggleable DangerSense
+    , cover :: Toggleable Cover
     , attackSurge :: Maybe AttackSurge
     , defenseSurge :: Maybe DefenseSurge
     , dropdownOpen :: Boolean
     }
+
+newtype AttackCount
+  = AttackCount Int
+
+derive instance newtypeAttackCount :: Newtype AttackCount _
+
+newtype AttackSurgeTokens
+  = AttackSurgeTokens Int
+
+derive instance newtypeAttackSurgeTokens :: Newtype AttackSurgeTokens _
+
+newtype AimTokens
+  = AimTokens Int
+
+derive instance newtypeAimTokens :: Newtype AimTokens _
+
+newtype DefenseVariant
+  = DefenseVariant DefenseRoll.Variant
+
+derive instance newtypeDefenseVariant :: Newtype DefenseVariant _
+
+newtype DefenseSurgeTokens
+  = DefenseSurgeTokens Int
+
+derive instance newtypeDefenseSurgeTokens :: Newtype DefenseSurgeTokens _
+
+newtype DodgeTokens
+  = DodgeTokens Int
+
+derive instance newtypeDodgeTokens :: Newtype DodgeTokens _
+
+newtype Precise
+  = Precise Int
+
+derive instance newtypePrecise :: Newtype Precise _
+
+newtype Critical
+  = Critical Int
+
+derive instance newtypeCritical :: Newtype Critical _
+
+newtype DangerSense
+  = DangerSense Int
+
+derive instance newtypeDangerSense :: Newtype DangerSense _
+
+newtype Cover
+  = Cover Int
+
+derive instance newtypeCover :: Newtype Cover _
+
+data ValidForm
+  = ValidForm
+    AttackRoll.Variant
+    AttackCount
+    (Maybe DefenseRoll.Variant)
+    (Maybe AttackSurgeTokens)
+    (Maybe DefenseSurgeTokens)
+
+isPositive :: String -> Int -> State (List String) (Maybe Int)
+isPositive name val =
+  if val < 0 then
+    state (\errors -> Tuple Nothing (Cons (name <> " cannot be less than 0") errors))
+  else
+    pure $ Just val
+
+isEnabledPositive :: String -> Toggleable Int -> State (List String) (Maybe Int)
+isEnabledPositive name =
+  getEnabled
+    >>> case _ of
+        Just val -> isPositive name val
+        Nothing -> pure Nothing
+
+validateModel :: Model -> State (List String) (Maybe ValidForm)
+validateModel m =
+  (pure $ Just ValidForm)
+    >>= (map ((#) m.attackVariant) >>> pure)
+    >>= ( \next -> do
+          val <- isPositive "Attack Count" (unwrap m.attackCount)
+          pure case wrap <$> val of
+            Just attackCount -> ((#) attackCount) <$> next
+            _ -> Nothing
+      )
+    >>= (map ((#) m.defenseVariant) >>> pure)
+    >>= ( \next -> do
+          val <- isEnabledPositive "Attack Surge Tokens" (unwrap <$> m.attackSurgeTokens)
+          let
+            attackSurgeTokens = wrap <$> val
+          pure ((#) attackSurgeTokens <$> next)
+      )
+    >>= ( \next -> do
+          val <- isEnabledPositive "Defense Surge Tokens" (unwrap <$> m.defenseSurgeTokens)
+          let
+            defenseSurgeTokens = wrap <$> val
+          pure ((#) defenseSurgeTokens <$> next)
+      )
 
 data Msg
   = TriggerHelloEvent
   | ReceivedHelloEvent
   | AttackVariantSelected AttackRoll.Variant
   | DefenseVariantSelected (Maybe DefenseRoll.Variant)
-  | AttackCountChanged String
-  | AimTokensChanged (Toggleable Int)
-  | AttackSurgeTokensChanged (Toggleable Int)
-  | DodgeTokensChanged (Toggleable Int)
-  | DefenseSurgeTokensChanged (Toggleable Int)
-  | PreciseChanged (Toggleable Int)
-  | CriticalChanged (Toggleable Int)
-  | DangerSenseChanged (Toggleable Int)
-  | CoverChanged (Toggleable Int)
+  | AttackCountChanged AttackCount
+  | AimTokensChanged (Toggleable AimTokens)
+  | AttackSurgeTokensChanged (Toggleable AttackSurgeTokens)
+  | DodgeTokensChanged (Toggleable DodgeTokens)
+  | DefenseSurgeTokensChanged (Toggleable DefenseSurgeTokens)
+  | PreciseChanged (Toggleable Precise)
+  | CriticalChanged (Toggleable Critical)
+  | DangerSenseChanged (Toggleable DangerSense)
+  | CoverChanged (Toggleable Cover)
   | AttackSurgeChanged (Maybe AttackSurge)
   | DefenseSurgeChanged (Maybe DefenseSurge)
   | ToggleDropdown Boolean
@@ -91,16 +197,16 @@ triggerHelloEvent = liftEffect $ const Nothing <$> dispatchDocumentEvent (custom
 init :: Tuple Model (Array (Aff (Maybe Msg)))
 init =
   { attackVariant: AttackRoll.White
-  , attackSurgeTokens: Disabled 0
-  , defenseSurgeTokens: Disabled 0
-  , dodgeTokens: Disabled 0
-  , aimTokens: Disabled 0
-  , precise: Disabled 0
-  , critical: Disabled 0
-  , dangerSense: Disabled 0
-  , cover: Disabled 0
+  , attackSurgeTokens: Disabled (AttackSurgeTokens 0)
+  , defenseSurgeTokens: Disabled (DefenseSurgeTokens 0)
+  , dodgeTokens: Disabled (DodgeTokens 0)
+  , aimTokens: Disabled (AimTokens 0)
+  , precise: Disabled (Precise 0)
+  , critical: Disabled (Critical 0)
+  , dangerSense: Disabled (DangerSense 0)
+  , cover: Disabled (Cover 0)
   , defenseVariant: Just DefenseRoll.White
-  , attackCount: 0
+  , attackCount: AttackCount 0
   , attackSurge: Nothing
   , defenseSurge: Nothing
   , dropdownOpen: false
@@ -152,8 +258,8 @@ update model (DodgeTokensChanged dodgeTokens) =
   model { dodgeTokens = dodgeTokens }
     :> []
 
-update model (AttackCountChanged count) =
-  model { attackCount = fromMaybe 0 $ Int.fromString count }
+update model (AttackCountChanged attackCount) =
+  model { attackCount = attackCount }
     :> []
 
 update model (DefenseVariantSelected defenseVariant) =
@@ -168,7 +274,7 @@ update model TriggerHelloEvent = model :> [ triggerHelloEvent ]
 
 update model ReceivedHelloEvent = model :> []
 
-numberInput :: forall msg. { label :: Maybe String, id :: String, value :: Int, onChange :: String -> msg } -> Html msg
+numberInput :: forall msg. { label :: Maybe String, id :: String, value :: Int, onChange :: Int -> msg } -> Html msg
 numberInput { label, id, value, onChange } =
   H.div
     [ A.class' "dib"
@@ -186,7 +292,7 @@ numberInput { label, id, value, onChange } =
         [ A.class' "inline-flex" ]
         [ H.button
             [ A.class' "self-stretch ba b--black-20 bg-black-70 white pointer"
-            , E.onClick $ onChange $ show $ value - 1
+            , E.onClick $ onChange $ value - 1
             ]
             [ H.span
                 [ A.class' "dib pt1"
@@ -200,12 +306,12 @@ numberInput { label, id, value, onChange } =
             [ A.type' "text"
             , A.id id
             , A.value $ show value
-            , E.onInput onChange
+            , E.onInput $ Int.fromString >>> fromMaybe 0 >>> onChange
             , A.class' "bt bb br-0 bl-0 pa2 w3 outline-0 b--black-20 tc f5 lh-title"
             ]
         , H.button
             [ A.class' "self-stretch ba b--black-20 bg-black-70 white pointer"
-            , E.onClick $ onChange $ show $ value + 1
+            , E.onClick $ onChange $ value + 1
             ]
             [ H.span
                 [ A.class' "dib pt1"
@@ -292,8 +398,8 @@ attackConfigView model =
             [ numberInput
                 { id: "attack-count-input"
                 , label: Just "Attack Count"
-                , value: model.attackCount
-                , onChange: AttackCountChanged
+                , value: unwrap model.attackCount
+                , onChange: AttackCount >>> AttackCountChanged
                 }
             ]
         , H.div
@@ -301,6 +407,7 @@ attackConfigView model =
             [ dropdownMenu
                 { isOpen: model.dropdownOpen
                 , toggleOpen: ToggleDropdown
+                , id: "sample-dropdown"
                 }
             ]
         ]
@@ -323,9 +430,9 @@ toggleGroup { label, id, onChange, value } =
       ]
       [ numberInput
           { label: Nothing
-          , value: toggleableVal value
+          , value: unwrapToggleable value
           , id: id <> "-input"
-          , onChange: Int.fromString >>> fromMaybe 0 >>> Enabled >>> onChange
+          , onChange: Enabled >>> onChange
           }
       ]
   ]
@@ -339,32 +446,32 @@ attackModGridView model =
         $ toggleGroup
             { id: "attack-surge-tokens"
             , label: "Surge Tokens"
-            , value: model.attackSurgeTokens
-            , onChange: AttackSurgeTokensChanged
+            , value: unwrap <$> model.attackSurgeTokens
+            , onChange: map wrap >>> AttackSurgeTokensChanged
             }
     , H.div
         [ A.class' "ma3" ]
         $ toggleGroup
             { id: "aim-tokens"
             , label: "Aim Tokens"
-            , value: model.aimTokens
-            , onChange: AimTokensChanged
+            , value: unwrap <$> model.aimTokens
+            , onChange: map wrap >>> AimTokensChanged
             }
     , H.div
         [ A.class' "ma3" ]
         $ toggleGroup
             { id: "critical"
             , label: "Critical X"
-            , value: model.critical
-            , onChange: CriticalChanged
+            , value: unwrap <$> model.critical
+            , onChange: map wrap >>> CriticalChanged
             }
     , H.div
         [ A.class' "ma3" ]
         $ toggleGroup
             { id: "precise"
             , label: "Precise X"
-            , value: model.precise
-            , onChange: PreciseChanged
+            , value: unwrap <$> model.precise
+            , onChange: map wrap >>> PreciseChanged
             }
     ]
 
@@ -404,8 +511,8 @@ defenseConfigView model =
         Nothing -> H.text ""
     ]
 
-dropdownMenu :: forall msg. { isOpen :: Boolean, toggleOpen :: Boolean -> msg } -> Html msg
-dropdownMenu { isOpen, toggleOpen } =
+dropdownMenu :: forall msg. { isOpen :: Boolean, toggleOpen :: Boolean -> msg, id :: String } -> Html msg
+dropdownMenu { isOpen, toggleOpen, id } =
   H.div
     [ A.class' "inline-flex flex-column"
     ]
@@ -417,6 +524,8 @@ dropdownMenu { isOpen, toggleOpen } =
         [ A.class' "ba b--black-80 bg-transparent w4 outline-0 pa2 f5 lh-title pointer"
         , A.style1 "height" "2.5rem"
         , E.onClick $ toggleOpen (not isOpen)
+        , A.createAttribute "aria-controls" id
+        , A.createAttribute "aria-expanded" $ show isOpen
         ]
         [ H.text "_"
         ]
@@ -434,6 +543,7 @@ dropdownMenu { isOpen, toggleOpen } =
             , A.style1 "transition" "0.33s"
             , A.createAttribute "show" $ show isOpen
             , E.createEvent "requestedclose" (toggleOpen false)
+            , A.id id
             ]
             [ H.button
                 [ A.class' "hover-bg-blue" ]
@@ -455,32 +565,32 @@ defenseModGridView model =
         $ toggleGroup
             { id: "defense-surge-tokens"
             , label: "Surge Tokens"
-            , value: model.defenseSurgeTokens
-            , onChange: DefenseSurgeTokensChanged
+            , value: unwrap <$> model.defenseSurgeTokens
+            , onChange: map wrap >>> DefenseSurgeTokensChanged
             }
     , H.div
         [ A.class' "ma3" ]
         $ toggleGroup
             { id: "dodge-tokens"
             , label: "Dodge Tokens"
-            , value: model.dodgeTokens
-            , onChange: DodgeTokensChanged
+            , value: unwrap <$> model.dodgeTokens
+            , onChange: map DodgeTokens >>> DodgeTokensChanged
             }
     , H.div
         [ A.class' "ma3" ]
         $ toggleGroup
             { id: "danger-sense"
             , label: "Danger Sense"
-            , value: model.dangerSense
-            , onChange: DangerSenseChanged
+            , value: unwrap <$> model.dangerSense
+            , onChange: map DangerSense >>> DangerSenseChanged
             }
     , H.div
         [ A.class' "ma3" ]
         $ toggleGroup
             { id: "cover"
             , label: "Cover X"
-            , value: model.cover
-            , onChange: CoverChanged
+            , value: unwrap <$> model.cover
+            , onChange: map Cover >>> CoverChanged
             }
     ]
 
