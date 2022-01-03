@@ -1,15 +1,18 @@
-module Main where
+module Main (main) where
 
 import Prelude
 import AttackRoll as AttackRoll
+import Data.Either (Either(..))
 import Data.Int as Int
+import Data.List (List)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Newtype (unwrap, wrap)
 import Data.Tuple (Tuple)
 import DefenseRoll as DefenseRoll
 import Effect (Effect)
 import Effect.Aff (Aff)
-import Fields (AimTokens, AttackCount(..), AttackSurge(..), AttackSurgeTokens, Cover(..), Critical, DangerSense(..), DefenseSurge(..), DefenseSurgeTokens, DodgeTokens(..), Fields, Precise, Toggleable(..), isToggled, toggle, unwrapToggleable)
+import Effect.Class (liftEffect)
+import Fields (AimTokens, AttackCount(..), AttackSurge, AttackSurgeTokens, Cover(..), Critical, DangerSense(..), DefenseSurge, DefenseSurgeTokens, DodgeTokens(..), FieldInfo, Fields, Precise, Toggleable(..), isToggled, toggle, unwrapToggleable, validateForm)
 import Fields as Fields
 import Flame (Html, QuerySelector(..), mount_, (:>))
 import Flame.Application.EffectList (Application)
@@ -17,14 +20,19 @@ import Flame.Html.Attribute as A
 import Flame.Html.Element as H
 import Flame.Html.Event as E
 import Icon as Icon
+import Resolve (resolveAttacks)
 
 type Model
   = { fields :: Fields
     , dropdownOpen :: Boolean
+    , formErrors :: Maybe (List FieldInfo)
+    , result :: Maybe Int
     }
 
 data Msg
-  = AttackVariantSelected AttackRoll.Variant
+  = SubmitFormClicked
+  | AttacksResolved Int
+  | AttackVariantSelected AttackRoll.Variant
   | DefenseVariantSelected (Maybe DefenseRoll.Variant)
   | AttackCountChanged AttackCount
   | AimTokensChanged (Toggleable AimTokens)
@@ -43,6 +51,8 @@ init :: Tuple Model (Array (Aff (Maybe Msg)))
 init =
   { fields: Fields.init
   , dropdownOpen: false
+  , formErrors: Nothing
+  , result: Nothing
   }
     :> []
 
@@ -50,6 +60,29 @@ updateFields :: Model -> (Fields -> Fields) -> Model
 updateFields model fn = model { fields = fn model.fields }
 
 update :: Model -> Msg -> Tuple Model (Array (Aff (Maybe Msg)))
+update model (AttacksResolved wounds) =
+  model { formErrors = Nothing, result = Just wounds }
+    :> []
+
+update model SubmitFormClicked = case validateForm model.fields of
+  Left formErrors -> model { formErrors = Just formErrors } :> []
+  Right config ->
+    model
+      :> [ liftEffect $ (AttacksResolved >>> Just)
+            <$> resolveAttacks
+                { attackCount: unwrap config.attackCount
+                , attackConfig:
+                    { surge: config.attackSurge
+                    , variant: config.attackVariant
+                    }
+                , attackMods:
+                    { rerolls: maybe 0 (\v -> v * 2) $ unwrap <$> config.aimTokens
+                    , surgeTokens: fromMaybe 0 $ unwrap <$> config.attackSurgeTokens
+                    }
+                , defense: Nothing
+                }
+        ]
+
 update model (ToggleDropdown dropdownOpen) =
   model { dropdownOpen = dropdownOpen }
     :> []
@@ -127,9 +160,7 @@ numberInput { label, id, value, onChange } =
             , E.onClick $ onChange $ value - 1
             ]
             [ H.span
-                [ A.class' "dib pt1"
-                , A.style1 "width" "1.5rem"
-                , A.style1 "height" "1.5rem"
+                [ A.class' "dib pt1 w1.5 h1.5"
                 ]
                 [ Icon.removeCircle
                 ]
@@ -159,7 +190,7 @@ numberInput { label, id, value, onChange } =
 view :: Model -> Html Msg
 view model =
   H.div
-    [ A.class' "flex justify-center ma3 avenir"
+    [ A.class' "flex flex-wrap justify-center ma3 avenir"
     ]
     [ H.div
         [ A.class' "flex flex-column items-center items-start-l flex-row-l flex-wrap-l na3 items-start"
@@ -187,6 +218,25 @@ view model =
                     [ H.text "Defense"
                     ]
                 , defenseConfigView model
+                ]
+            ]
+        ]
+    , H.div
+        [ A.class' "w-100 tc pa3" ]
+        [ H.div
+            [ A.class' "inline-flex flex-column"
+            ]
+            [ H.button
+                [ E.onClick SubmitFormClicked ]
+                [ H.text "Try Submit"
+                ]
+            , H.div
+                [ A.class' "mt3"
+                ]
+                [ case { formErrors: model.formErrors, result: model.result } of
+                    { formErrors: Just _, result: _ } -> H.text "There are errors"
+                    { result: Just result } -> H.text $ show result <> " wounds dealt"
+                    _ -> H.text ""
                 ]
             ]
         ]
@@ -218,8 +268,8 @@ attackConfigView model =
                 { label, id }
           )
             <$> [ { value: Nothing, label: "( No Surge )", id: "attack-surge-none" }
-              , { value: Just SurgeHit, label: "Surge Hit", id: "attack-surge-hit" }
-              , { value: Just SurgeCrit, label: "Surge Crit", id: "attack-surge-crit" }
+              , { value: Just AttackRoll.Hit, label: "Surge Hit", id: "attack-surge-hit" }
+              , { value: Just AttackRoll.Crit, label: "Surge Crit", id: "attack-surge-crit" }
               ]
         )
     , H.div
@@ -258,7 +308,7 @@ toggleGroup { label, id, onChange, value } =
           , "h3 pv2": isToggled value
           , "h0": not $ isToggled value
           }
-      , A.style1 "transition" "0.33s"
+      , A.style1 "transition" "height 0.33s"
       ]
       [ numberInput
           { label: Nothing
@@ -332,7 +382,7 @@ defenseConfigView model =
                 { label, id }
           )
             <$> [ { value: Nothing, label: "( No Surge )", id: "defense-surge-none" }
-              , { value: Just SurgeBlock, label: "Surge Block", id: "defense-surge-block" }
+              , { value: Just DefenseRoll.Block, label: "Surge Block", id: "defense-surge-block" }
               ]
         )
     , case model.fields.defenseVariant of
@@ -353,8 +403,7 @@ dropdownMenu { isOpen, toggleOpen, id } =
         ]
         [ H.text "label" ]
     , H.button
-        [ A.class' "ba b--black-80 bg-transparent w4 outline-0 pa2 f5 lh-title pointer"
-        , A.style1 "height" "2.5rem"
+        [ A.class' "h2.5 ba b--black-80 bg-transparent w4 outline-0 pa2 f5 lh-title pointer"
         , E.onClick $ toggleOpen (not isOpen)
         , A.createAttribute "aria-controls" id
         , A.createAttribute "aria-expanded" $ show isOpen
@@ -372,7 +421,6 @@ dropdownMenu { isOpen, toggleOpen, id } =
                 }
             , A.style1 "max-height" if isOpen then "15rem" else "0rem"
             , A.style1 "top" if isOpen then "0.25rem" else "3rem"
-            , A.style1 "transition" "0.33s"
             , A.createAttribute "show" $ show isOpen
             , E.createEvent "requestedclose" (toggleOpen false)
             , A.id id
@@ -527,11 +575,7 @@ radioSelect selected onSelect { label, id } =
             [ A.class'
                 { "black-20": not selected
                 , "black-70": selected
-                , "flex-grow-0 flex-shrink-0 mr2": true
-                }
-            , A.style
-                { "height": "1.5rem"
-                , "width": "1.5rem"
+                , "flex-grow-0 flex-shrink-0 mr2 w1.5 h1.5": true
                 }
             ]
             [ Icon.radioButton selected

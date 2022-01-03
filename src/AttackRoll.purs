@@ -30,6 +30,8 @@ data Result
 
 derive instance genericResult :: Generic Result _
 
+derive instance eqResult :: Eq Result
+
 instance showResult :: Show Result where
   show = genericShow
 

@@ -125,19 +125,14 @@ derive instance newtypeCover :: Newtype Cover _
 coverField :: FieldInfo
 coverField = { id: "cover", errorLabel: "Cover" }
 
-data DefenseSurge
-  = SurgeBlock
-
-derive instance eqDefenseSurge :: Eq DefenseSurge
+type DefenseSurge
+  = DefenseRoll.Result
 
 defenseSurgeField :: FieldInfo
 defenseSurgeField = { id: "defense-surge", errorLabel: "Defense Surge" }
 
-data AttackSurge
-  = SurgeHit
-  | SurgeCrit
-
-derive instance eqAttackSurge :: Eq AttackSurge
+type AttackSurge
+  = AttackRoll.Result
 
 attackSurgeField :: FieldInfo
 attackSurgeField = { id: "attack-surge", errorLabel: "Attack Surge" }
