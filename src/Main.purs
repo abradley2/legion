@@ -9,6 +9,7 @@ import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Newtype (unwrap, wrap)
 import Data.Tuple (Tuple)
 import DefenseRoll as DefenseRoll
+import DropdownMenu (dropdownMenu)
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Class (liftEffect)
@@ -20,7 +21,10 @@ import Flame.Html.Attribute as A
 import Flame.Html.Element as H
 import Flame.Html.Event as E
 import Icon as Icon
+import NumberInput (numberInput)
+import RadioSelect (radioSelect)
 import Resolve (resolveAttacks)
+import ToggleGroup (toggleGroup)
 
 type Model
   = { fields :: Fields
@@ -68,20 +72,7 @@ update model SubmitFormClicked = case validateForm model.fields of
   Left formErrors -> model { formErrors = Just formErrors } :> []
   Right config ->
     model
-      :> [ liftEffect $ (AttacksResolved >>> Just)
-            <$> resolveAttacks
-                { attackCount: unwrap config.attackCount
-                , attackConfig:
-                    { surge: config.attackSurge
-                    , variant: config.attackVariant
-                    }
-                , attackMods:
-                    { rerolls: maybe 0 (\v -> v * 2) $ unwrap <$> config.aimTokens
-                    , surgeTokens: fromMaybe 0 $ unwrap <$> config.attackSurgeTokens
-                    }
-                , defense: Nothing
-                }
-        ]
+      :> [ liftEffect $ (AttacksResolved >>> Just) <$> resolveAttacks config ]
 
 update model (ToggleDropdown dropdownOpen) =
   model { dropdownOpen = dropdownOpen }
@@ -138,54 +129,6 @@ update model (DefenseVariantSelected defenseVariant) =
 update model (AttackVariantSelected attackVariant) =
   updateFields model (_ { attackVariant = attackVariant })
     :> []
-
-numberInput :: forall msg. { label :: Maybe String, id :: String, value :: Int, onChange :: Int -> msg } -> Html msg
-numberInput { label, id, value, onChange } =
-  H.div
-    [ A.class' "dib"
-    ]
-    [ case label of
-        Just labelText ->
-          H.label
-            [ A.class' "fw5"
-            , A.for id
-            ]
-            [ H.text labelText ]
-        _ -> H.text ""
-    , maybe (H.text "") (const H.br) label
-    , H.div
-        [ A.class' "inline-flex" ]
-        [ H.button
-            [ A.class' "self-stretch ba b--black-20 bg-black-70 white pointer"
-            , E.onClick $ onChange $ value - 1
-            ]
-            [ H.span
-                [ A.class' "dib pt1 w1.5 h1.5"
-                ]
-                [ Icon.removeCircle
-                ]
-            ]
-        , H.input
-            [ A.type' "text"
-            , A.id id
-            , A.value $ show value
-            , E.onInput $ Int.fromString >>> fromMaybe 0 >>> onChange
-            , A.class' "bt bb br-0 bl-0 pa2 w3 outline-0 b--black-20 tc f5 lh-title"
-            ]
-        , H.button
-            [ A.class' "self-stretch ba b--black-20 bg-black-70 white pointer"
-            , E.onClick $ onChange $ value + 1
-            ]
-            [ H.span
-                [ A.class' "dib pt1"
-                , A.style1 "width" "1.5rem"
-                , A.style1 "height" "1.5rem"
-                ]
-                [ Icon.addCircle
-                ]
-            ]
-        ]
-    ]
 
 view :: Model -> Html Msg
 view model =
@@ -296,29 +239,6 @@ attackConfigView model =
     , attackModGridView model
     ]
 
-toggleGroup :: { label :: String, id :: String, onChange :: (Toggleable Int -> Msg), value :: Toggleable Int } -> Array (Html Msg)
-toggleGroup { label, id, onChange, value } =
-  [ switch
-      (isToggled value)
-      (const $ onChange $ toggle value)
-      { label, id: id <> "-switch" }
-  , H.div
-      [ A.class'
-          { "overflow-hidden": true
-          , "h3 pv2": isToggled value
-          , "h0": not $ isToggled value
-          }
-      , A.style1 "transition" "height 0.33s"
-      ]
-      [ numberInput
-          { label: Nothing
-          , value: unwrapToggleable value
-          , id: id <> "-input"
-          , onChange: Enabled >>> onChange
-          }
-      ]
-  ]
-
 attackModGridView :: Model -> Html Msg
 attackModGridView model =
   H.div
@@ -393,49 +313,6 @@ defenseConfigView model =
         Nothing -> H.text ""
     ]
 
-dropdownMenu :: forall msg. { isOpen :: Boolean, toggleOpen :: Boolean -> msg, id :: String } -> Html msg
-dropdownMenu { isOpen, toggleOpen, id } =
-  H.div
-    [ A.class' "inline-flex flex-column"
-    ]
-    [ H.label
-        [ A.class' "fw5"
-        ]
-        [ H.text "label" ]
-    , H.button
-        [ A.class' "h2.5 ba b--black-80 bg-transparent w4 outline-0 pa2 f5 lh-title pointer"
-        , E.onClick $ toggleOpen (not isOpen)
-        , A.createAttribute "aria-controls" id
-        , A.createAttribute "aria-expanded" $ show isOpen
-        ]
-        [ H.text "_"
-        ]
-    , H.div
-        [ A.class' "relative w-100 overflow-visible"
-        ]
-        [ H.createElementNode "focus-menu"
-            [ A.class'
-                { "absolute left-0 right--1 z-1 flex flex-column items-stretch": true
-                , "bg-white pa2 ba b--black o-100 shadow-5 overflow-y-scroll": isOpen
-                , "o-0 overflow-hidden": not isOpen
-                }
-            , A.style1 "max-height" if isOpen then "15rem" else "0rem"
-            , A.style1 "top" if isOpen then "0.25rem" else "3rem"
-            , A.createAttribute "show" $ show isOpen
-            , E.createEvent "requestedclose" (toggleOpen false)
-            , A.id id
-            ]
-            [ H.button
-                [ A.class' "hover-bg-blue" ]
-                [ H.text "Option one" ]
-            , H.button_
-                [ H.text "Option two" ]
-            , H.button_
-                [ H.text "Option three" ]
-            ]
-        ]
-    ]
-
 defenseModGridView :: Model -> Html Msg
 defenseModGridView model =
   H.div
@@ -472,124 +349,6 @@ defenseModGridView model =
             , value: unwrap <$> model.fields.cover
             , onChange: map Cover >>> CoverChanged
             }
-    ]
-
-switch ::
-  Boolean ->
-  (Boolean -> Msg) ->
-  { label :: String, id :: String } ->
-  Html Msg
-switch isOn onChange { label, id } =
-  H.div
-    [ A.class' "dib"
-    ]
-    [ H.input
-        [ A.type' "checkbox"
-        , A.class' "dn"
-        , A.id id
-        , A.name id
-        , A.checked isOn
-        , E.onCheck onChange
-        ]
-    , H.label
-        [ A.class' "dib pointer"
-        , A.for id
-        ]
-        [ H.div
-            [ A.class' "inline-flex" ]
-            [ H.div
-                [ A.class'
-                    { "dib center br-pill ba b--black-50 relative": true
-                    , "bg-white": not isOn
-                    , "bg-light-gray": isOn
-                    }
-                , A.style
-                    { "width": "2rem"
-                    , "height": ".75rem"
-                    }
-                ]
-                [ H.div'
-                    [ A.class'
-                        { "dib br-100 absolute ba b--black": true
-                        , "bg-gray": isOn
-                        , "bg-light-gray": not isOn
-                        }
-                    , A.style
-                        { "width": "1.2rem"
-                        , "height": "1.2rem"
-                        , "top": "calc(50% - 0.6rem)"
-                        , "transition": "0.33s"
-                        , "left":
-                            if not isOn then
-                              "calc(0% - 0.2rem)"
-                            else
-                              "calc(100% - 1rem)"
-                        }
-                    ]
-                ]
-            , H.div
-                [ A.class'
-                    { "dib f7 pl2": true
-                    , "black-50": not isOn
-                    , "black-80": isOn
-                    }
-                ]
-                [ H.text $ if isOn then "( Enabled )" else "( Disabled )" ]
-            ]
-        , H.br
-        , H.span
-            [ A.class'
-                { "black-50": not isOn
-                , "black-70 fw6": isOn
-                , "f5": true
-                }
-            ]
-            [ H.text label ]
-        ]
-    ]
-
-radioSelect ::
-  Boolean ->
-  Msg ->
-  { label :: String
-  , id :: String
-  } ->
-  Html Msg
-radioSelect selected onSelect { label, id } =
-  H.div
-    [ A.class' "dib"
-    ]
-    [ H.input
-        [ A.type' "radio"
-        , A.class' "dn"
-        , A.id id
-        , A.name id
-        , A.checked selected
-        , E.onCheck $ const onSelect
-        ]
-    , H.label
-        [ A.class' "inline-flex items-center pointer"
-        , A.for id
-        ]
-        [ H.div
-            [ A.class'
-                { "black-20": not selected
-                , "black-70": selected
-                , "flex-grow-0 flex-shrink-0 mr2 w1.5 h1.5": true
-                }
-            ]
-            [ Icon.radioButton selected
-            ]
-        , H.div
-            [ A.class'
-                { "black-50": not selected
-                , "black-70 fw6": selected
-                , "mt1 f5": true
-                }
-            ]
-            [ H.text label
-            ]
-        ]
     ]
 
 app :: Application Model Msg

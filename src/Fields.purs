@@ -5,10 +5,11 @@ import AttackRoll as AttackRoll
 import Control.Monad.State (State, runState, state)
 import Data.Either (Either(..))
 import Data.List (List(..))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe, fromMaybe)
 import Data.Newtype (class Newtype, unwrap)
 import Data.Tuple (Tuple(..))
 import DefenseRoll as DefenseRoll
+import Resolve (Config)
 
 type FieldInfo
   = { errorLabel :: String
@@ -170,22 +171,6 @@ init =
   , defenseSurge: Nothing
   }
 
-type ValidFields
-  = { attackVariant :: AttackVariant
-    , attackCount :: AttackCount
-    , defenseVariant :: Maybe DefenseVariant
-    , attackSurgeTokens :: Maybe AttackSurgeTokens
-    , defenseSurgeTokens :: Maybe DefenseSurgeTokens
-    , aimTokens :: Maybe AimTokens
-    , dodgeTokens :: Maybe DodgeTokens
-    , precise :: Maybe Precise
-    , critical :: Maybe Critical
-    , dangerSense :: Maybe DangerSense
-    , cover :: Maybe Cover
-    , attackSurge :: Maybe AttackSurge
-    , defenseSurge :: Maybe DefenseSurge
-    }
-
 isPositive :: FieldInfo -> Int -> State (List FieldInfo) (Maybe Int)
 isPositive fieldInfo val =
   if val < 0 then
@@ -200,7 +185,7 @@ isEnabledPositive fieldInfo =
         Just val -> isPositive fieldInfo val
         Nothing -> pure Nothing
 
-validateForm :: Fields -> Either (List FieldInfo) ValidFields
+validateForm :: Fields -> Either (List FieldInfo) Config
 validateForm =
   validateForm_
     >>> flip runState Nil
@@ -209,7 +194,7 @@ validateForm =
         Tuple (Just validFields) Nil -> Right validFields
         Tuple Nothing Nil -> Left (Cons { id: "unknown", errorLabel: "Failed to validate form: unknown error" } Nil)
 
-validateForm_ :: Fields -> State (List FieldInfo) (Maybe ValidFields)
+validateForm_ :: Fields -> State (List FieldInfo) (Maybe Config)
 validateForm_ fields = do
   attackCount <-
     map AttackCount
@@ -239,18 +224,17 @@ validateForm_ fields = do
     map Cover
       <$> isEnabledPositive coverField (unwrap <$> fields.cover)
   pure
-    $ { attackVariant: fields.attackVariant
-      , defenseVariant: fields.defenseVariant
-      , attackSurge: fields.attackSurge
-      , defenseSurge: fields.defenseSurge
-      , attackSurgeTokens
-      , defenseSurgeTokens
-      , aimTokens
-      , dodgeTokens
-      , precise
-      , critical
-      , dangerSense
-      , cover
-      , attackCount: _
-      }
+    $ ( \(AttackCount attackCount') ->
+          { attackCount: attackCount'
+          , attackConfig:
+              { surge: fields.attackSurge
+              , variant: fields.attackVariant
+              }
+          , attackMods:
+              { rerolls: maybe 0 (\v -> v * 2) $ unwrap <$> aimTokens
+              , surgeTokens: fromMaybe 0 $ unwrap <$> attackSurgeTokens
+              }
+          , defense: Nothing
+          }
+      )
     <$> attackCount

@@ -30,8 +30,7 @@ resolveAttacks { attackConfig, attackMods, attackCount, defense } = do
       map (either (const (-1)) defenseResultToWounds)
         $ flip evalStateT defenseMods
         $ runExceptT (rollBlocks defenseConfig attackResults)
-    Nothing ->
-      pure $ attackResultToWounds attackResults
+    Nothing -> pure $ attackResultToWounds attackResults
 
 defenseResultToWounds :: List DefenseRoll.Result -> Int
 defenseResultToWounds =
