@@ -1,4 +1,4 @@
-module Switch where
+module View.Switch where
 
 import Prelude
 import Flame (Html)

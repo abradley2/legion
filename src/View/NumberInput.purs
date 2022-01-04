@@ -1,4 +1,4 @@
-module NumberInput where
+module View.NumberInput where
 
 import Prelude
 import Data.Int as Int
@@ -7,7 +7,7 @@ import Flame (Html)
 import Flame.Html.Attribute as A
 import Flame.Html.Element as H
 import Flame.Html.Event as E
-import Icon as Icon
+import View.Icon as Icon
 
 numberInput :: forall msg. { label :: Maybe String, id :: String, value :: Int, onChange :: Int -> msg } -> Html msg
 numberInput { label, id, value, onChange } =

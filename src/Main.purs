@@ -2,40 +2,45 @@ module Main (main) where
 
 import Prelude
 import AttackRoll as AttackRoll
+import Data.Array ((..), length)
 import Data.Either (Either(..))
-import Data.Int as Int
+import Data.Int (toNumber)
 import Data.List (List)
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap, wrap)
+import Data.Traversable (sequence, sum)
 import Data.Tuple (Tuple)
 import DefenseRoll as DefenseRoll
-import DropdownMenu (dropdownMenu)
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Class (liftEffect)
-import Fields (AimTokens, AttackCount(..), AttackSurge, AttackSurgeTokens, Cover(..), Critical, DangerSense(..), DefenseSurge, DefenseSurgeTokens, DodgeTokens(..), FieldInfo, Fields, Precise, Toggleable(..), isToggled, toggle, unwrapToggleable, validateForm)
+import Fields (AimTokens, AttackCount(..), AttackSurge, AttackSurgeTokens, Cover(..), Critical, DangerSense(..), DefenseSurge, DefenseSurgeTokens, DodgeTokens(..), FieldInfo, Fields, Precise, validateForm)
 import Fields as Fields
+import Fields.Toggleable (Toggleable)
 import Flame (Html, QuerySelector(..), mount_, (:>))
 import Flame.Application.EffectList (Application)
 import Flame.Html.Attribute as A
 import Flame.Html.Element as H
 import Flame.Html.Event as E
-import Icon as Icon
-import NumberInput (numberInput)
-import RadioSelect (radioSelect)
 import Resolve (resolveAttacks)
-import ToggleGroup (toggleGroup)
+import View.DropdownMenu (dropdownMenu)
+import View.NumberInput (numberInput)
+import View.RadioSelect (radioSelect)
+import View.ToggleGroup (toggleGroup)
+
+average :: Array Int -> Number
+average arr = toNumber (sum arr) / toNumber (length arr)
 
 type Model
   = { fields :: Fields
     , dropdownOpen :: Boolean
     , formErrors :: Maybe (List FieldInfo)
-    , result :: Maybe Int
+    , result :: Maybe (Array Int)
     }
 
 data Msg
   = SubmitFormClicked
-  | AttacksResolved Int
+  | AttacksResolved (Array Int)
   | AttackVariantSelected AttackRoll.Variant
   | DefenseVariantSelected (Maybe DefenseRoll.Variant)
   | AttackCountChanged AttackCount
@@ -72,7 +77,12 @@ update model SubmitFormClicked = case validateForm model.fields of
   Left formErrors -> model { formErrors = Just formErrors } :> []
   Right config ->
     model
-      :> [ liftEffect $ (AttacksResolved >>> Just) <$> resolveAttacks config ]
+      :> [ map (AttacksResolved >>> Just)
+            $ liftEffect
+            $ sequence
+            $ (const $ resolveAttacks config)
+            <$> (1 .. 1000)
+        ]
 
 update model (ToggleDropdown dropdownOpen) =
   model { dropdownOpen = dropdownOpen }
@@ -178,7 +188,7 @@ view model =
                 ]
                 [ case { formErrors: model.formErrors, result: model.result } of
                     { formErrors: Just _, result: _ } -> H.text "There are errors"
-                    { result: Just result } -> H.text $ show result <> " wounds dealt"
+                    { result: Just result } -> H.text $ show (average result) <> " wounds dealt"
                     _ -> H.text ""
                 ]
             ]

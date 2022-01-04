@@ -1,4 +1,4 @@
-module DropdownMenu where
+module View.DropdownMenu where
 
 import Prelude
 import Flame (Html)

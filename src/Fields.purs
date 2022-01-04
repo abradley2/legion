@@ -9,38 +9,13 @@ import Data.Maybe (Maybe(..), maybe, fromMaybe)
 import Data.Newtype (class Newtype, unwrap)
 import Data.Tuple (Tuple(..))
 import DefenseRoll as DefenseRoll
+import Fields.Toggleable (Toggleable(..), getEnabled)
 import Resolve (Config)
 
 type FieldInfo
   = { errorLabel :: String
     , id :: String
     }
-
-data Toggleable a
-  = Enabled a
-  | Disabled a
-
-derive instance functorToggleable :: Functor Toggleable
-
-isToggled :: forall a. Toggleable a -> Boolean
-isToggled = case _ of
-  Enabled _ -> true
-  Disabled _ -> false
-
-toggle :: forall a. Toggleable a -> Toggleable a
-toggle = case _ of
-  Enabled val -> Disabled val
-  Disabled val -> Enabled val
-
-unwrapToggleable :: forall a. Toggleable a -> a
-unwrapToggleable = case _ of
-  Enabled val -> val
-  Disabled val -> val
-
-getEnabled :: forall a. Toggleable a -> Maybe a
-getEnabled = case _ of
-  Enabled val -> Just val
-  _ -> Nothing
 
 type AttackVariant
   = AttackRoll.Variant

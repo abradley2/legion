@@ -1,11 +1,11 @@
-module RadioSelect where
+module View.RadioSelect where
 
 import Prelude
 import Flame (Html)
 import Flame.Html.Attribute as A
-import Flame.Html.Event as E
 import Flame.Html.Element as H
-import Icon (radioButton)
+import Flame.Html.Event as E
+import View.Icon (radioButton)
 
 radioSelect ::
   forall msg.

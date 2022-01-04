@@ -1,4 +1,4 @@
-module Icon where
+module View.Icon where
 
 import Flame (Html)
 import Flame.Html.Element as H

@@ -1,13 +1,13 @@
-module ToggleGroup where
+module View.ToggleGroup where
 
 import Prelude
 import Data.Maybe (Maybe(..))
-import Fields (Toggleable(..), isToggled, toggle, unwrapToggleable)
+import Fields.Toggleable (Toggleable(..), isToggled, toggle, unwrapToggleable)
 import Flame (Html)
 import Flame.Html.Attribute as A
 import Flame.Html.Element as H
-import NumberInput (numberInput)
-import Switch (switch)
+import View.NumberInput (numberInput)
+import View.Switch (switch)
 
 toggleGroup ::
   forall msg.

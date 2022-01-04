@@ -20,7 +20,6 @@ to generate this file without the comments in this block.
   , "enums"
   , "flame"
   , "foldable-traversable"
-  , "foreign-object"
   , "integers"
   , "lists"
   , "maybe"
@@ -30,9 +29,6 @@ to generate this file without the comments in this block.
   , "random"
   , "transformers"
   , "tuples"
-  , "web-dom"
-  , "web-events"
-  , "web-html"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]

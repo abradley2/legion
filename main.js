@@ -1,5 +1,5 @@
 const { main } = require('./output/Main')
-const { FocusMenu } = require('./src/FocusMenu')
+const { FocusMenu } = require('./src/View/FocusMenu')
 
 window.customElements.define('focus-menu', FocusMenu)
 
