@@ -79,6 +79,8 @@ type Mods
 type Config
   = { variant :: Variant
     , surge :: Maybe Result
+    , surgeTokens :: Int
+    , aimTokens :: Int
     }
 
 resolveMods :: Config -> List Result -> StateT Mods Effect (List Result)
@@ -123,11 +125,23 @@ resolveMods config (Cons Surge attacks) = do
     else
       Tuple (Cons Miss next) mods
 
-rollAttacks ∷ Config → Mods → Int → Effect (List Result)
-rollAttacks config mods count =
+rollAttacks ∷ Config → Int → Effect (List Result)
+rollAttacks config count =
   replicate count unit
     # List.fromFoldable
-    # map (const rollD8 >>> map (toResult config.variant) >>> map (applySurge config.surge))
+    # map (const rollD8 >>> map (toResult config.variant))
     # sequence
-    # map (resolveMods config)
-    >>= \s -> evalStateT s mods
+    # map resolveMods'
+    >>= \s -> evalStateT s config
+
+resolveMods' :: List Result -> StateT Config Effect (List Result)
+resolveMods' results = do
+  mods <-
+    state
+      ( \s ->
+          let
+            Tuple mods aimTokens = if s.aimTokens > 1 then Tuple { rerolls: 2 } s else Tuple { rerolls: 0 } s
+          in
+            Tuple {} s
+      )
+  pure Nil

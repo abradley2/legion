@@ -17,14 +17,13 @@ import Effect (Effect)
 
 type Config
   = { attackConfig :: AttackRoll.Config
-    , attackMods :: AttackRoll.Mods
     , attackCount :: Int
     , defense :: Maybe { defenseConfig :: DefenseRoll.Config, defenseMods :: DefenseRoll.Mods }
     }
 
 resolveAttacks ∷ Config → Effect Int
-resolveAttacks { attackConfig, attackMods, attackCount, defense } = do
-  attackResults <- List.fromFoldable <$> Array.fromFoldable <$> rollAttacks attackConfig attackMods attackCount
+resolveAttacks { attackConfig, attackCount, defense } = do
+  attackResults <- List.fromFoldable <$> Array.fromFoldable <$> rollAttacks attackConfig attackCount
   case defense of
     Just { defenseConfig, defenseMods } ->
       map (either (const (-1)) defenseResultToWounds)

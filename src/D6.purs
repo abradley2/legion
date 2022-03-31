@@ -51,11 +51,5 @@ instance boundedEnumD6 :: BoundedEnum D6 where
 
 rollD6 ∷ Effect D6
 rollD6 = do
-  intVal <- randomInt (fromEnum first) (fromEnum last)
-  pure $ toEnumWithDefaults first last intVal
-  where
-  first :: D6
-  first = bottom
-
-  last :: D6
-  last = top
+  intVal <- randomInt (fromEnum (bottom :: D6)) (fromEnum (top :: D6))
+  pure $ toEnumWithDefaults (bottom :: D6) (top :: D6) intVal

@@ -5,7 +5,7 @@ import AttackRoll as AttackRoll
 import Control.Monad.State (State, runState, state)
 import Data.Either (Either(..))
 import Data.List (List(..))
-import Data.Maybe (Maybe(..), maybe, fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (class Newtype, unwrap)
 import Data.Tuple (Tuple(..))
 import DefenseRoll as DefenseRoll
@@ -204,9 +204,7 @@ validateForm_ fields = do
           , attackConfig:
               { surge: fields.attackSurge
               , variant: fields.attackVariant
-              }
-          , attackMods:
-              { rerolls: maybe 0 (\v -> v * 2) $ unwrap <$> aimTokens
+              , aimTokens: fromMaybe 0 $ unwrap <$> aimTokens
               , surgeTokens: fromMaybe 0 $ unwrap <$> attackSurgeTokens
               }
           , defense: Nothing
