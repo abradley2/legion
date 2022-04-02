@@ -2,15 +2,13 @@ module Fields where
 
 import Prelude
 import AttackRoll as AttackRoll
-import Control.Monad.State (State, runState, state)
-import Data.Either (Either(..))
-import Data.List (List(..))
-import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Newtype (class Newtype, unwrap)
+import Data.Maybe (Maybe(..))
+import Data.Newtype (class Newtype, unwrap, wrap)
+import Data.List.NonEmpty as NEList
+import Data.List.NonEmpty (NonEmptyList)
 import Data.Tuple (Tuple(..))
 import DefenseRoll as DefenseRoll
-import Fields.Toggleable (Toggleable(..), getEnabled)
-import Resolve (Config)
+import Fields.Toggleable (Toggleable(..))
 
 type FieldInfo
   = { errorLabel :: String
@@ -129,6 +127,22 @@ type Fields
     , defenseSurge :: Maybe DefenseSurge
     }
 
+type ValidFields
+  = { attackVariant :: AttackRoll.Variant
+    , attackCount :: AttackCount
+    , attackSurgeTokens :: Maybe AttackSurgeTokens
+    , aimtokens :: Maybe AimTokens
+    , defenseVariant :: Maybe DefenseRoll.Variant
+    , defenseSurgeTokens :: Maybe DefenseSurgeTokens
+    , dodgeTokens :: Maybe DodgeTokens
+    , precise :: Maybe Precise
+    , critical :: Maybe Critical
+    , dangerSense :: Maybe DangerSense
+    , cover :: Maybe Cover
+    , attackSurge :: Maybe AttackSurge
+    , defenseSurge :: Maybe DefenseSurge
+    }
+
 init :: Fields
 init =
   { attackVariant: AttackRoll.White
@@ -146,68 +160,69 @@ init =
   , defenseSurge: Nothing
   }
 
-isPositive :: FieldInfo -> Int -> State (List FieldInfo) (Maybe Int)
-isPositive fieldInfo val =
-  if val < 0 then
-    state (\errors -> Tuple Nothing (Cons (fieldInfo { errorLabel = fieldInfo.errorLabel <> " cannot be less than 0" }) errors))
-  else
-    pure $ Just val
+type Validator from to
+  = FieldInfo -> from -> Validation (NonEmptyList (Tuple FieldInfo String)) to
 
-isEnabledPositive :: FieldInfo -> Toggleable Int -> State (List FieldInfo) (Maybe Int)
-isEnabledPositive fieldInfo =
-  getEnabled
-    >>> case _ of
-        Just val -> isPositive fieldInfo val
-        Nothing -> pure Nothing
-
-validateForm :: Fields -> Either (List FieldInfo) Config
-validateForm =
-  validateForm_
-    >>> flip runState Nil
-    >>> case _ of
-        Tuple _ (Cons err errors) -> Left (Cons err errors)
-        Tuple (Just validFields) Nil -> Right validFields
-        Tuple Nothing Nil -> Left (Cons { id: "unknown", errorLabel: "Failed to validate form: unknown error" } Nil)
-
-validateForm_ :: Fields -> State (List FieldInfo) (Maybe Config)
-validateForm_ fields = do
-  attackCount <-
-    map AttackCount
-      <$> isPositive attackCountField (unwrap fields.attackCount)
-  attackSurgeTokens <-
-    map AttackSurgeTokens
-      <$> isEnabledPositive attackSurgeTokensField (unwrap <$> fields.attackSurgeTokens)
-  defenseSurgeTokens <-
-    map DefenseSurgeTokens
-      <$> isEnabledPositive defenseSurgeTokensField (unwrap <$> fields.defenseSurgeTokens)
-  aimTokens <-
-    map AimTokens
-      <$> isEnabledPositive aimTokensField (unwrap <$> fields.aimTokens)
-  dodgeTokens <-
-    map DodgeTokens
-      <$> isEnabledPositive dodgeTokensField (unwrap <$> fields.aimTokens)
-  precise <-
-    map Precise
-      <$> isEnabledPositive preciseField (unwrap <$> fields.precise)
-  critical <-
-    map Critical
-      <$> isEnabledPositive criticalField (unwrap <$> fields.critical)
-  dangerSense <-
-    map DangerSense
-      <$> isEnabledPositive dangerSenseField (unwrap <$> fields.dangerSense)
-  cover <-
-    map Cover
-      <$> isEnabledPositive coverField (unwrap <$> fields.cover)
-  pure
-    $ ( \(AttackCount attackCount') ->
-          { attackCount: attackCount'
-          , attackConfig:
-              { surge: fields.attackSurge
-              , variant: fields.attackVariant
-              , aimTokens: fromMaybe 0 $ unwrap <$> aimTokens
-              , surgeTokens: fromMaybe 0 $ unwrap <$> attackSurgeTokens
-              }
-          , defense: Nothing
-          }
+validateIsPositive :: forall field. Newtype field Int => Validator field field
+validateIsPositive fieldInfo =
+  unwrap
+    >>> ( \v ->
+          if v < 0 then
+            Failure $ NEList.singleton (Tuple fieldInfo "Value must be greater than 0")
+          else
+            Success $ wrap v
       )
-    <$> attackCount
+
+validateToggleable :: forall field. Newtype field Int => (Validator field field) -> (Validator (Toggleable field) (Maybe field))
+validateToggleable validation fieldInfo = case _ of
+  Disabled _ -> Success Nothing
+  Enabled val -> Just <$> validation fieldInfo val
+
+formValidation :: Fields -> Validation (NonEmptyList (Tuple FieldInfo String)) ValidFields
+formValidation fields =
+  ( pure
+      { attackVariant: _
+      , attackCount: _
+      , attackSurgeTokens: _
+      , aimtokens: _
+      , defenseVariant: _
+      , defenseSurgeTokens: _
+      , dodgeTokens: _
+      , precise: _
+      , critical: _
+      , dangerSense: _
+      , cover: _
+      , attackSurge: _
+      , defenseSurge: _
+      }
+  )
+    <*> pure fields.attackVariant
+    <*> validateIsPositive attackCountField fields.attackCount
+    <*> validateToggleable validateIsPositive attackSurgeTokensField fields.attackSurgeTokens
+    <*> validateToggleable validateIsPositive aimTokensField fields.aimTokens
+    <*> pure fields.defenseVariant
+    <*> validateToggleable validateIsPositive defenseSurgeTokensField fields.defenseSurgeTokens
+    <*> validateToggleable validateIsPositive dodgeTokensField fields.dodgeTokens
+    <*> validateToggleable validateIsPositive preciseField fields.precise
+    <*> validateToggleable validateIsPositive criticalField fields.critical
+    <*> validateToggleable validateIsPositive dangerSenseField fields.dangerSense
+    <*> validateToggleable validateIsPositive coverField fields.cover
+    <*> pure fields.attackSurge
+    <*> pure fields.defenseSurge
+
+data Validation failure success
+  = Failure failure
+  | Success success
+
+instance functorValidation :: Functor (Validation failure) where
+  map _ (Failure failure) = Failure failure
+  map fn (Success success) = Success (fn success)
+
+instance applicativeValidation :: Semigroup failure => Applicative (Validation failure) where
+  pure = Success
+
+instance applyValidation :: Semigroup failure => Apply (Validation failure) where
+  apply (Success _) (Failure failure) = Failure failure
+  apply (Failure failure) (Success _) = Failure failure
+  apply (Success fn) (Success val) = Success (fn val)
+  apply (Failure failure1) (Failure failure2) = Failure (failure1 <> failure2)
